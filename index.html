@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Not My First Radio - Algorithm-Free Internet Radio Player | Online Radio Streaming</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Discover and stream radio stations from around the world with our algorithm-free internet radio player. No algorithms, no tracking - just pure radio discovery and streaming.">
+    <meta name="keywords" content="internet radio, algorithm-free radio, online radio streaming, radio player, radio stations, music streaming, web radio, radio discovery, non-algorithmic radio, radio sharing">
+    <meta name="author" content="Miles Gilbert">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <meta name="language" content="English">
+    <meta name="revisit-after" content="7 days">
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="Not My First Radio - Algorithm-Free Internet Radio Player">
+    <meta property="og:description" content="Discover and stream radio stations from around the world with our algorithm-free internet radio player. No algorithms, no tracking - just pure radio discovery and streaming.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://notmyfirstradio.com">
+    <meta property="og:image" content="/icons/icon512.png">
+    <meta property="og:site_name" content="Not My First Radio">
+    
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Not My First Radio - Algorithm-Free Internet Radio Player">
+    <meta name="twitter:description" content="Discover and stream radio stations from around the world with our algorithm-free internet radio player. No algorithms, no tracking - just pure radio discovery and streaming.">
+    <meta name="twitter:image" content="/icons/icon512.png">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png">
+    <link rel="shortcut icon" href="/icons/favicon.ico">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#2c2c2c">
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icons/icon192.png">
+    
+    <!-- Material Icons -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Sharp:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0" />
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="/styles.css">
+    
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Not My First Radio",
+        "description": "A lightweight, algorithm-free web app for discovering and streaming radio stations from around the world. Features include station sharing, favorites, and non-algorithmic music discovery.",
+        "url": "https://notmyfirstradio.com",
+        "applicationCategory": "MusicApplication",
+        "operatingSystem": "Any",
+        "offers": {
+            "@type": "Offer",
+            "price": "0",
+            "priceCurrency": "USD"
+        },
+        "author": {
+            "@type": "Person",
+            "name": "Miles Gilbert",
+            "url": "https://www.milesgilbert.xyz"
+        },
+        "keywords": "internet radio, algorithm-free radio, online radio streaming, radio player, radio stations, music streaming, web radio, radio discovery, non-algorithmic radio, radio sharing",
+        "featureList": [
+            "Algorithm-free radio discovery",
+            "Global radio station streaming",
+            "Station sharing capabilities",
+            "Favorites management",
+            "No tracking or personal data collection"
+        ]
+    }
+    </script>
+</head>
+<body>
+    <!-- Loading Indicator -->
+    <div id="import-loading-indicator" class="loading-indicator" style="display: none;">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Loading, please wait...</div>
+    </div>
+
+    <div class="app-container">
+        <!-- Alert Banner -->
+        <div class="alert-banner hidden">
+            <div class="alert-banner-content">
+                <p>Not My First Radio is being built like a garden: in public, at a pace befitting a solo/hobbyist developer, and with a general idea of what I want it to be while knowing that it will change over time. Some features may not work as expected. If you have any feedback, please <a href="https://github.com/brainnews/not-my-first-radio/issues" target="_blank">open an issue</a> on GitHub.</p>
+            </div>
+            <button id="close-alert" class="close-alert-btn">
+                <span class="material-symbols-rounded">close</span>
+            </button>
+        </div>
+
+        <!-- Notification Container -->
+        <div class="notification-container"></div>
+
+        <!-- Audio Visualizer Container -->
+        <div id="audio-visualizer" class="audio-visualizer hidden"></div>
+
+        <!-- Header -->
+        <header>
+        </header>
+
+        <!-- Main Content -->
+        <main>
+
+            <!-- Saved Stations Section -->
+            <section id="saved-stations" class="saved-stations">
+                <div id="stations" class="stations-grid">
+                    <!-- Stations will be populated by StationManager -->
+                </div>
+            </section>
+        </main>
+
+        <!-- Player Bar -->
+        <footer class="player-bar">
+            <div class="now-playing">
+                <div class="static hidden"></div>
+                <div class="station-info">
+                    <div id="current-favicon-container" class="current-favicon-container">
+                    </div>
+                    <div class="current-details">
+                        <h3 id="station-name">Select a station</h3>
+                        <p id="station-details"></p>
+                    </div>
+                </div>
+                <div class="player-controls">
+                    <button id="play-pause" class="control-btn">
+                        <span class="material-symbols-rounded">play_arrow</span>
+                    </button>
+                </div>
+            </div>
+        </footer>
+
+        <!-- Settings Panel -->
+        <div id="settings-panel" class="settings-panel hidden">
+            <div class="settings-header">
+                <h2>Settings</h2>
+                <button id="close-settings" class="close-settings-btn">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </div>
+            
+            <div class="settings-content">
+                <!-- Settings content will be populated by SettingsManager -->
+            </div>
+        </div>
+
+        <!-- Settings Overlay -->
+        <div id="settings-overlay" class="settings-overlay hidden"></div>
+
+        <!-- Update Notification Modal -->
+        <div id="update-modal" class="modal hidden">
+            <div class="modal-content" style="width: 100%; max-width: 400px; text-align: center; padding: 3rem 1rem;">
+                <div class="modal-header">
+                    <h2 style="text-align: center; width: 100%;">Update Available</h2>
+                    <button id="close-update" class="close-btn" style="position: absolute; top: 1rem; right: 1rem;">
+                        <span class="material-symbols-rounded">close</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>Update now to continue using the app.</p>
+                    <div class="modal-actions" style="margin-top: 2rem; width: 100%; display: flex; justify-content: center;">
+                        <button id="update-now" class="update-now-btn" style="background-color: var(--accent-color);">
+                            Update now
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <script type="module" src="./src/main.ts"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            // Register service worker for PWA functionality
+            navigator.serviceWorker.register('/sw.js')
+                .then(registration => {
+                    console.log('Service Worker registered successfully:', registration);
+                    
+                    // Check for updates every hour
+                    setInterval(() => {
+                        registration.update();
+                    }, 60 * 60 * 1000);
+
+                    // Listen for updates
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        if (newWorker) {
+                            newWorker.addEventListener('statechange', () => {
+                                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                    showUpdateNotification();
+                                }
+                            });
+                        }
+                    });
+
+                    // Listen for file-specific updates
+                    navigator.serviceWorker.addEventListener('message', event => {
+                        if (event.data && event.data.type === 'UPDATE_AVAILABLE') {
+                            showUpdateNotification(event.data.file);
+                        }
+                    });
+                })
+                .catch(err => {
+                    console.warn('Service Worker registration failed:', err);
+                });
+
+            // Handle updates when the service worker is already installed
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                window.location.reload();
+            });
+
+            // Function to show update notification
+            function showUpdateNotification(updatedFile) {
+                const updateModal = document.getElementById('update-modal');
+                const closeUpdateBtn = document.getElementById('close-update');
+                const updateNowBtn = document.getElementById('update-now');
+                const updateMessage = document.querySelector('#update-modal .modal-body p');
+                
+                // Update the message if a specific file was updated
+                if (updatedFile) {
+                    const fileName = updatedFile.split('/').pop();
+                    updateMessage.textContent = `An update is available for ${fileName}. Update now to continue using the app.`;
+                } else {
+                    updateMessage.textContent = 'Update now to continue using the app.';
+                }
+                
+                updateModal.classList.remove('hidden');
+                
+                // Handle update now
+                updateNowBtn.addEventListener('click', () => {
+                    // Send message to service worker to skip waiting
+                    if (navigator.serviceWorker.controller) {
+                        navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+                    }
+                    window.location.reload();
+                });
+                
+                // Handle close button
+                closeUpdateBtn.addEventListener('click', () => {
+                    updateModal.classList.add('hidden');
+                });
+            }
+        }
+    </script>
+</body>
+</html>

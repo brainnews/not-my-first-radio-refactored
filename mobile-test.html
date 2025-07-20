@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Sharesheet Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #121212;
+            color: white;
+        }
+        
+        .test-button {
+            padding: 12px 24px;
+            background: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        
+        /* Test CSS from implementation */
+        .library-options-menu.mobile-sharesheet {
+            border-radius: 12px 12px 0 0;
+            transition: transform 0.2s ease;
+            background: #1c1c1e;
+            border: none;
+            box-shadow: 0 -4px 32px rgba(0, 0, 0, 0.15);
+        }
+        
+        .library-menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        
+        .library-station-menu-list {
+            display: flex;
+            flex-direction: column;
+            padding: 1rem 0 calc(1rem + env(safe-area-inset-bottom));
+        }
+        
+        .library-station-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            font-size: 1rem;
+            min-height: 44px;
+            color: white;
+        }
+        
+        .library-station-menu-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>Mobile Sharesheet Test</h1>
+    <p>Click the button to test the mobile sharesheet menu:</p>
+    <button class="test-button" onclick="showTestMenu()">Show Library Menu</button>
+    
+    <script>
+        function showTestMenu() {
+            // Remove any existing menu
+            const existingMenu = document.querySelector('.library-options-menu');
+            if (existingMenu) {
+                existingMenu.remove();
+            }
+            
+            // Check if mobile
+            const isMobile = window.innerWidth <= 768;
+            
+            // Create menu container
+            const menu = document.createElement('div');
+            menu.className = `library-options-menu library-station-menu ${isMobile ? 'mobile-sharesheet' : ''}`;
+            
+            const menuList = document.createElement('div');
+            menuList.className = 'library-station-menu-list';
+            
+            // Add menu items
+            const items = [
+                { icon: '🔗', text: 'Share with Link' },
+                { icon: '📱', text: 'Share with QR Code' },
+                { icon: '📥', text: 'Export as JSON' },
+                { icon: '📤', text: 'Import from JSON' },
+                { icon: '➕', text: 'Add Station' }
+            ];
+            
+            items.forEach(item => {
+                const menuItem = document.createElement('div');
+                menuItem.className = 'library-station-menu-item';
+                menuItem.innerHTML = `<span>${item.icon}</span><span>${item.text}</span>`;
+                menuItem.addEventListener('click', () => {
+                    alert(`Clicked: ${item.text}`);
+                    closeMenu();
+                });
+                menuList.appendChild(menuItem);
+            });
+            
+            menu.appendChild(menuList);
+            
+            // Position menu based on device type
+            document.body.appendChild(menu);
+            
+            if (isMobile) {
+                // Mobile: Create overlay and show as bottom sheet
+                const overlay = document.createElement('div');
+                overlay.className = 'library-menu-overlay';
+                document.body.appendChild(overlay);
+                
+                // Set mobile positioning
+                menu.style.position = 'fixed';
+                menu.style.bottom = '0';
+                menu.style.left = '0';
+                menu.style.right = '0';
+                menu.style.transform = 'translateY(100%)';
+                menu.style.zIndex = '1000';
+                
+                // Animate in
+                requestAnimationFrame(() => {
+                    menu.style.transform = 'translateY(0)';
+                    overlay.style.opacity = '1';
+                });
+                
+                // Close handler for mobile
+                const closeMobileMenu = (e) => {
+                    if (e.target === overlay || (!menu.contains(e.target))) {
+                        closeMenu();
+                    }
+                };
+                
+                function closeMenu() {
+                    menu.style.transform = 'translateY(100%)';
+                    overlay.style.opacity = '0';
+                    setTimeout(() => {
+                        menu.remove();
+                        overlay.remove();
+                        document.removeEventListener('click', closeMobileMenu);
+                    }, 200);
+                }
+                
+                setTimeout(() => document.addEventListener('click', closeMobileMenu), 0);
+            } else {
+                // Desktop: Position as dropdown
+                menu.style.position = 'absolute';
+                menu.style.top = '100px';
+                menu.style.left = '20px';
+                menu.style.background = '#1c1c1e';
+                menu.style.border = '1px solid #333';
+                menu.style.borderRadius = '8px';
+                menu.style.boxShadow = '0 8px 32px rgba(0, 0, 0, 0.2)';
+                
+                // Close menu when clicking outside (desktop)
+                const closeDesktopMenu = (e) => {
+                    if (!menu.contains(e.target)) {
+                        menu.remove();
+                        document.removeEventListener('click', closeDesktopMenu);
+                    }
+                };
+                setTimeout(() => document.addEventListener('click', closeDesktopMenu), 0);
+            }
+        }
+    </script>
+</body>
+</html>

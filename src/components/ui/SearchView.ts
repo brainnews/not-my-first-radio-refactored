@@ -1,0 +1,998 @@
+/**
+ * Search view component for discovering and browsing radio stations
+ */
+
+import { RadioStation, LocalStation } from '@/types/station';
+import { SearchResult, SearchFilters } from '@/modules/search/SearchManager';
+import { createElement, querySelector } from '@/utils/dom';
+import { eventManager } from '@/utils/events';
+import { getCountryIcon, getBitrateIcon, getVotesIcon } from '@/utils/icons';
+
+interface StarterPack {
+  filename: string;
+  data: {
+    stations: RadioStation[];
+    version: string;
+    username: string;
+    description: string;
+    thumbnail_path: string;
+  };
+}
+
+export interface SearchViewConfig {
+  container?: HTMLElement;
+}
+
+/**
+ * Search view component for station discovery and browsing
+ */
+export class SearchView {
+  private container: HTMLElement;
+  private searchInput!: HTMLInputElement;
+  private resultsContainer!: HTMLElement;
+  private loadingIndicator!: HTMLElement;
+  private emptyState!: HTMLElement;
+  private loadMoreButton!: HTMLButtonElement;
+  
+  private currentResults: RadioStation[] = [];
+  private currentQuery = '';
+  private currentFilters: SearchFilters = {};
+  private hasMore = false;
+  private previewingStation: RadioStation | null = null;
+  private libraryStations: Set<string> = new Set(); // Track station UUIDs in library
+
+  constructor(config: SearchViewConfig = {}) {
+    this.container = config.container || this.createContainer();
+    this.render();
+    this.setupEventListeners();
+    this.requestLibraryState();
+    this.loadStarterPacks();
+  }
+
+  /**
+   * Create search view container
+   */
+  private createContainer(): HTMLElement {
+    const container = createElement('div', {
+      className: 'search-view',
+      id: 'search-view'
+    });
+
+    // Append to main section alongside other views
+    const main = document.querySelector('main');
+    if (main) {
+      main.appendChild(container);
+    } else {
+      document.body.appendChild(container);
+    }
+
+    return container;
+  }
+
+  /**
+   * Render the search view
+   */
+  private render(): void {
+    this.container.innerHTML = `
+      <div class="search-header">
+        <div class="search-title-section">
+          <h2 class="search-title">Explore</h1>
+        </div>
+      </div>
+      <div class="search-input-container">
+        <input type="text" id="search-input" placeholder="Search for stations, genres, countries..." autocomplete="off">
+        <button type="button" id="search-clear" class="search-clear" aria-label="Clear search">
+          <span class="icon">✕</span>
+        </button>
+      </div>
+
+      <div class="search-filters" id="search-filters">
+        <div class="filters-header">
+          <button type="button" id="clear-filters" class="clear-filters-button" style="display: none;">
+            <span class="material-symbols-rounded">close_small</span>
+            Clear Filters
+          </button>
+          <button type="button" class="filters-toggle" id="filters-toggle">
+            <span class="filters-toggle-text">Advanced Filters</span>
+            <span class="material-symbols-rounded filters-toggle-icon">expand_more</span>
+          </button>
+        </div>
+        
+        <div class="filters-content collapsed" id="filters-content">
+          <div class="filter-group">
+            <label for="country-filter">Country:</label>
+            <select id="country-filter">
+              <option value="">Any Country</option>
+            </select>
+          </div>
+          
+          <div class="filter-group">
+            <label for="genre-filter">Genre:</label>
+            <select id="genre-filter">
+              <option value="">Any Genre</option>
+            </select>
+          </div>
+          
+          <div class="filter-group">
+            <label for="bitrate-filter">Min Bitrate:</label>
+            <select id="bitrate-filter">
+              <option value="">Any Quality</option>
+              <option value="64">64 kbps+</option>
+              <option value="128">128 kbps+</option>
+              <option value="192">192 kbps+</option>
+              <option value="320">320 kbps+</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="search-content">
+        <div id="loading-indicator" class="loading-indicator hidden">
+          <div class="spinner"></div>
+          <span>Searching stations...</span>
+        </div>
+
+        <div id="empty-state" class="empty-state">
+          <div class="empty-state-content">
+            <p>Start typing to search, or explore these curated station collections</p>
+            <div class="starter-packs-grid" id="starter-packs-grid">
+              <div class="loading-indicator">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">Loading starter packs...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="search-results" class="search-results">
+          <div class="results-header hidden">
+            <span id="results-count"></span>
+            <div class="results-controls">
+              <div class="filter-group">
+                <label for="sort-filter">Sort by:</label>
+                <select id="sort-filter">
+                  <option value="votes">Popularity</option>
+                  <option value="name">Name</option>
+                  <option value="clickcount">Most Played</option>
+                  <option value="bitrate">Quality</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div id="stations-list" class="stations-list"></div>
+          <button type="button" id="load-more" class="load-more-button hidden">
+            Load More Stations
+          </button>
+        </div>
+      </div>
+    `;
+
+    // Get references to elements
+    this.searchInput = querySelector('#search-input', this.container) as HTMLInputElement;
+    this.resultsContainer = querySelector('#search-results', this.container);
+    this.loadingIndicator = querySelector('#loading-indicator', this.container);
+    this.emptyState = querySelector('#empty-state', this.container);
+    this.loadMoreButton = querySelector('#load-more', this.container) as HTMLButtonElement;
+
+    this.setupFilterOptions();
+  }
+
+  /**
+   * Set up event listeners
+   */
+  private setupEventListeners(): void {
+    // Search input
+    this.searchInput.addEventListener('input', (e) => {
+      const query = (e.target as HTMLInputElement).value;
+      this.handleSearch(query);
+    });
+
+    // Clear search button
+    const clearButton = querySelector('#search-clear', this.container);
+    clearButton.addEventListener('click', () => {
+      this.clearSearch();
+    });
+
+    // Filters toggle button
+    const filtersToggle = querySelector('#filters-toggle', this.container);
+    filtersToggle.addEventListener('click', () => {
+      this.toggleFilters();
+    });
+
+    // Filter changes
+    const countryFilter = querySelector('#country-filter', this.container) as HTMLSelectElement;
+    const genreFilter = querySelector('#genre-filter', this.container) as HTMLSelectElement;
+    const bitrateFilter = querySelector('#bitrate-filter', this.container) as HTMLSelectElement;
+    const sortFilter = querySelector('#sort-filter', this.container) as HTMLSelectElement;
+
+    [countryFilter, genreFilter, bitrateFilter, sortFilter].forEach(filter => {
+      filter.addEventListener('change', () => {
+        this.updateFilters();
+      });
+    });
+
+    // Clear filters button
+    const clearFiltersButton = querySelector('#clear-filters', this.container);
+    clearFiltersButton.addEventListener('click', () => {
+      this.clearFilters();
+    });
+
+    // Load more button
+    this.loadMoreButton.addEventListener('click', () => {
+      this.loadMore();
+    });
+
+    // Search events
+    eventManager.on('search:started', this.handleSearchStarted.bind(this));
+    eventManager.on('search:completed', this.handleSearchCompleted.bind(this));
+    eventManager.on('search:more-loaded', this.handleMoreLoaded.bind(this));
+    eventManager.on('search:error', this.handleSearchError.bind(this));
+    eventManager.on('search:cleared', this.handleSearchCleared.bind(this));
+    eventManager.on('search:preview-state', this.handlePreviewState.bind(this));
+
+    // Player events
+    eventManager.on('player:state-changed', this.handlePlayerStateChanged.bind(this));
+
+    // Library events
+    eventManager.on('station:added', this.handleStationAdded.bind(this));
+    eventManager.on('station:removed', this.handleStationRemoved.bind(this));
+    eventManager.on('stations:loaded', this.handleStationsLoaded.bind(this));
+  }
+
+  /**
+   * Set up filter options
+   */
+  private async setupFilterOptions(): Promise<void> {
+    // Load countries from SearchManager API
+    eventManager.emit('search:get-countries');
+    eventManager.once('search:countries-response', (countries: Array<{ name: string; stationcount: number }>) => {
+      this.populateCountryFilter(countries);
+    });
+
+    // Load genres from SearchManager API
+    eventManager.emit('search:get-genres');
+    eventManager.once('search:genres-response', (genres: Array<{ name: string; stationcount: number }>) => {
+      this.populateGenreFilter(genres);
+      // Update filter indicators after all filters are populated
+      this.updateFilterIndicators();
+    });
+  }
+
+  /**
+   * Populate country filter with comprehensive list
+   */
+  private populateCountryFilter(countries: Array<{ name: string; stationcount: number }>): void {
+    const countryFilter = querySelector('#country-filter', this.container) as HTMLSelectElement;
+    
+    // Clear existing options and add "Any Country" option
+    countryFilter.innerHTML = '';
+    const anyOption = createElement('option', { value: '', textContent: 'Any Country' });
+    countryFilter.appendChild(anyOption);
+
+    // Sort countries alphabetically and add them
+    countries
+      .filter(country => country.stationcount > 0) // Only include countries with stations
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach(country => {
+        const option = createElement('option', { 
+          value: country.name, 
+          textContent: country.name 
+        });
+        countryFilter.appendChild(option);
+      });
+  }
+
+  /**
+   * Populate genre filter with comprehensive list
+   */
+  private populateGenreFilter(genres: Array<{ name: string; stationcount: number }>): void {
+    const genreFilter = querySelector('#genre-filter', this.container) as HTMLSelectElement;
+    
+    // Clear existing options and add "Any Genre" option
+    genreFilter.innerHTML = '';
+    const anyOption = createElement('option', { value: '', textContent: 'Any Genre' });
+    genreFilter.appendChild(anyOption);
+
+    // Sort genres by station count (descending) then alphabetically
+    genres
+      .filter(genre => genre.stationcount > 0) // Only include genres with stations
+      .sort((a, b) => {
+        if (b.stationcount !== a.stationcount) {
+          return b.stationcount - a.stationcount; // Sort by station count (descending)
+        }
+        return a.name.localeCompare(b.name); // Then alphabetically
+      })
+      .slice(0, 100) // Limit to top 100 genres to avoid overwhelming the dropdown
+      .forEach(genre => {
+        const option = createElement('option', { 
+          value: genre.name.toLowerCase(), 
+          textContent: genre.name.length > 20 ? genre.name.substring(0, 20) + '...' : genre.name
+        });
+        genreFilter.appendChild(option);
+      });
+  }
+
+  /**
+   * Handle search input
+   */
+  private handleSearch(query: string): void {
+    this.currentQuery = query;
+    eventManager.emit('search:execute', { query, filters: this.currentFilters });
+  }
+
+  /**
+   * Update filters
+   */
+  private updateFilters(): void {
+    const countryFilter = querySelector('#country-filter', this.container) as HTMLSelectElement;
+    const genreFilter = querySelector('#genre-filter', this.container) as HTMLSelectElement;
+    const bitrateFilter = querySelector('#bitrate-filter', this.container) as HTMLSelectElement;
+    const sortFilter = querySelector('#sort-filter', this.container) as HTMLSelectElement;
+
+    this.currentFilters = {
+      country: countryFilter.value || undefined,
+      genre: genreFilter.value || undefined,
+      minBitrate: bitrateFilter.value ? parseInt(bitrateFilter.value) : undefined,
+      order: sortFilter.value as 'name' | 'votes' | 'clickcount' | 'bitrate',
+      reverse: sortFilter.value !== 'name' // Reverse for all except name
+    };
+
+    // Always trigger search when filters change, even without text query
+    eventManager.emit('search:execute', { query: this.currentQuery, filters: this.currentFilters });
+    
+    // Update filter visual indicators
+    this.updateFilterIndicators();
+  }
+
+  /**
+   * Clear search
+   */
+  private clearSearch(): void {
+    this.searchInput.value = '';
+    this.currentQuery = '';
+    eventManager.emit('search:clear');
+  }
+
+  /**
+   * Clear all filters
+   */
+  private clearFilters(): void {
+    const countryFilter = querySelector('#country-filter', this.container) as HTMLSelectElement;
+    const genreFilter = querySelector('#genre-filter', this.container) as HTMLSelectElement;
+    const bitrateFilter = querySelector('#bitrate-filter', this.container) as HTMLSelectElement;
+    const sortFilter = querySelector('#sort-filter', this.container) as HTMLSelectElement;
+
+    // Reset all filters to default values
+    countryFilter.value = '';
+    genreFilter.value = '';
+    bitrateFilter.value = '';
+    sortFilter.value = 'votes'; // Default sort
+
+    // Update filters and trigger search
+    this.updateFilters();
+  }
+
+  /**
+   * Update visual indicators for active filters
+   */
+  private updateFilterIndicators(): void {
+    const clearFiltersButton = querySelector('#clear-filters', this.container) as HTMLButtonElement;
+    const filtersToggle = querySelector('#filters-toggle', this.container);
+    
+    // Check if any filters are active
+    const hasActiveFilters = !!(
+      this.currentFilters.country ||
+      this.currentFilters.genre ||
+      this.currentFilters.minBitrate ||
+      (this.currentFilters.order && this.currentFilters.order !== 'votes')
+    );
+
+    // Show/hide clear filters button based on active state
+    if (hasActiveFilters) {
+      clearFiltersButton.style.display = 'flex';
+      filtersToggle.classList.add('has-active-filters');
+    } else {
+      clearFiltersButton.style.display = 'none';
+      filtersToggle.classList.remove('has-active-filters');
+    }
+
+    // Update filters toggle text to show count
+    const filtersToggleText = querySelector('.filters-toggle-text', this.container);
+    if (hasActiveFilters) {
+      const activeCount = [
+        this.currentFilters.country,
+        this.currentFilters.genre,
+        this.currentFilters.minBitrate,
+        this.currentFilters.order !== 'votes' ? this.currentFilters.order : null
+      ].filter(Boolean).length;
+      
+      filtersToggleText.textContent = `Advanced Filters (${activeCount})`;
+    } else {
+      filtersToggleText.textContent = 'Advanced Filters';
+    }
+  }
+
+  /**
+   * Toggle advanced filters visibility
+   */
+  private toggleFilters(): void {
+    const filtersContent = querySelector('#filters-content', this.container);
+    const toggleIcon = querySelector('.filters-toggle-icon', this.container);
+    
+    const isExpanded = !filtersContent.classList.contains('collapsed');
+    
+    if (isExpanded) {
+      filtersContent.classList.add('collapsed');
+      toggleIcon.textContent = 'expand_more';
+    } else {
+      filtersContent.classList.remove('collapsed');
+      toggleIcon.textContent = 'expand_less';
+    }
+  }
+
+  /**
+   * Load more results
+   */
+  private loadMore(): void {
+    eventManager.emit('search:load-more');
+  }
+
+  /**
+   * Request current library state
+   */
+  private requestLibraryState(): void {
+    // Request current library state from StationManager
+    eventManager.emit('library:get-stations');
+    
+    // Listen for the response
+    eventManager.once('library:stations-response', (stations: LocalStation[]) => {
+      this.handleStationsLoaded(stations);
+    });
+
+    // Add a timeout in case the StationManager isn't ready yet
+    setTimeout(() => {
+      eventManager.emit('library:get-stations');
+    }, 100);
+  }
+
+  /**
+   * Load starter packs for initial display
+   */
+  private async loadStarterPacks(): Promise<void> {
+    const starterPacksGrid = querySelector('#starter-packs-grid', this.container);
+    
+    try {
+      // List of starter pack files
+      const starterPackFiles = [
+        'ambient.json',
+        'austin.json', 
+        'blues.json',
+        'classical.json',
+        'college-radio.json',
+        'jazz.json',
+        'jungle-dnb.json',
+        'kpop.json',
+        'noise.json'
+      ];
+
+      // Load all starter packs
+      const starterPackPromises = starterPackFiles.map(async (filename) => {
+        try {
+          const response = await fetch(`./starter-packs/${filename}`);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.json();
+          return { filename, data };
+        } catch (error) {
+          console.error(`Error loading starter pack ${filename}:`, error);
+          return null;
+        }
+      });
+
+      const starterPackResults = await Promise.all(starterPackPromises);
+      const validPacks = starterPackResults.filter((pack): pack is StarterPack => pack !== null);
+
+      if (validPacks.length === 0) {
+        starterPacksGrid.innerHTML = '<p class="no-stations">Error loading starter packs. Please try again later.</p>';
+        return;
+      }
+
+      // Create starter pack cards
+      const starterPackCards = validPacks.map(pack => this.createStarterPackCard(pack));
+      
+      // Clear loading indicator and add cards
+      starterPacksGrid.innerHTML = '';
+      starterPackCards.forEach(card => {
+        starterPacksGrid.appendChild(card);
+      });
+
+    } catch (error) {
+      console.error('Error loading starter packs:', error);
+      starterPacksGrid.innerHTML = '<p class="no-stations">Error loading starter packs. Please try again later.</p>';
+    }
+  }
+
+  /**
+   * Handle search started event
+   */
+  private handleSearchStarted(): void {
+    this.showLoading();
+  }
+
+  /**
+   * Handle search completed event
+   */
+  private handleSearchCompleted(result: SearchResult): void {
+    this.currentResults = result.stations;
+    this.hasMore = result.hasMore;
+    this.renderResults();
+  }
+
+  /**
+   * Handle more results loaded
+   */
+  private handleMoreLoaded(result: SearchResult): void {
+    this.currentResults.push(...result.stations);
+    this.hasMore = result.hasMore;
+    this.renderResults();
+  }
+
+  /**
+   * Handle search error
+   */
+  private handleSearchError(): void {
+    this.hideLoading();
+    // Error is handled by notification system
+  }
+
+  /**
+   * Handle search cleared
+   */
+  private handleSearchCleared(): void {
+    this.currentResults = [];
+    this.hasMore = false;
+    this.renderResults();
+    this.loadStarterPacks();
+  }
+
+  /**
+   * Handle preview state changes
+   */
+  private handlePreviewState(data: { state: string; station: RadioStation | null }): void {
+    const { state, station } = data;
+    
+    if (state === 'playing') {
+      this.previewingStation = station;
+    } else if (state === 'stopped' || state === 'error') {
+      this.previewingStation = null;
+    }
+    
+    this.updateStationPreviewStates();
+  }
+
+  /**
+   * Handle player state changes
+   */
+  private handlePlayerStateChanged(): void {
+    this.updateStationStates();
+  }
+
+  /**
+   * Handle station added to library
+   */
+  private handleStationAdded(station: LocalStation): void {
+    this.libraryStations.add(station.stationuuid);
+    this.updateStationLibraryStates();
+  }
+
+  /**
+   * Handle station removed from library
+   */
+  private handleStationRemoved(station: LocalStation): void {
+    this.libraryStations.delete(station.stationuuid);
+    this.updateStationLibraryStates();
+  }
+
+  /**
+   * Handle stations loaded (to populate initial library state)
+   */
+  private handleStationsLoaded(stations: LocalStation[]): void {
+    // Clear and repopulate the library stations set
+    this.libraryStations.clear();
+    stations.forEach(station => {
+      this.libraryStations.add(station.stationuuid);
+    });
+    
+    // Update any existing station cards
+    this.updateStationLibraryStates();
+  }
+
+  /**
+   * Show loading indicator
+   */
+  private showLoading(): void {
+    this.loadingIndicator.classList.remove('hidden');
+    this.emptyState.classList.add('hidden');
+    this.resultsContainer.classList.add('hidden');
+  }
+
+  /**
+   * Hide loading indicator
+   */
+  private hideLoading(): void {
+    this.loadingIndicator.classList.add('hidden');
+  }
+
+  /**
+   * Generate appropriate search result message based on search type
+   */
+  private generateSearchResultMessage(): string {
+    const count = this.currentResults.length;
+    const hasMore = this.hasMore ? '+' : '';
+    const hasQuery = this.currentQuery.trim().length > 0;
+    const hasFilters = !!(this.currentFilters.country || this.currentFilters.genre || this.currentFilters.minBitrate);
+
+    if (hasQuery && hasFilters) {
+      // Text search + filters
+      const filterParts = [];
+      if (this.currentFilters.genre) filterParts.push(this.currentFilters.genre);
+      if (this.currentFilters.country) filterParts.push(`from ${this.currentFilters.country}`);
+      if (this.currentFilters.minBitrate) filterParts.push(`${this.currentFilters.minBitrate}+ kbps`);
+      
+      return `Found ${count}${hasMore} stations matching "${this.currentQuery}"${filterParts.length ? ` (${filterParts.join(', ')})` : ''}`;
+    } else if (hasFilters) {
+      // Filter-only search
+      const filterParts = [];
+      if (this.currentFilters.genre) filterParts.push(`${this.currentFilters.genre} stations`);
+      if (this.currentFilters.country) filterParts.push(`from ${this.currentFilters.country}`);
+      if (this.currentFilters.minBitrate) filterParts.push(`${this.currentFilters.minBitrate}+ kbps`);
+      
+      const description = filterParts.length > 0 ? filterParts.join(' ') : 'filtered stations';
+      return `Showing ${count}${hasMore} ${description}`;
+    } else if (hasQuery) {
+      // Text search only
+      return `Found ${count}${hasMore} stations matching "${this.currentQuery}"`;
+    } else {
+      // No search criteria (shouldn't happen with new logic, but fallback)
+      return `Showing ${count}${hasMore} stations`;
+    }
+  }
+
+  /**
+   * Render search results
+   */
+  private renderResults(): void {
+    this.hideLoading();
+
+    if (this.currentResults.length === 0) {
+      this.emptyState.classList.remove('hidden');
+      this.resultsContainer.classList.add('hidden');
+      return;
+    }
+
+    this.emptyState.classList.add('hidden');
+    this.resultsContainer.classList.remove('hidden');
+
+    // Update results count with smart messaging
+    const resultsHeader = querySelector('.results-header', this.container);
+    const resultsCount = querySelector('#results-count', this.container);
+    
+    resultsCount.textContent = this.generateSearchResultMessage();
+    
+    resultsHeader.classList.remove('hidden');
+
+    // Render stations
+    const stationsList = querySelector('#stations-list', this.container);
+    stationsList.innerHTML = '';
+
+    this.currentResults.forEach(station => {
+      const stationCard = this.createStationCard(station);
+      stationsList.appendChild(stationCard);
+    });
+
+    // Update library states for all newly rendered cards
+    this.updateStationLibraryStates();
+
+    // Show/hide load more button
+    if (this.hasMore) {
+      this.loadMoreButton.classList.remove('hidden');
+    } else {
+      this.loadMoreButton.classList.add('hidden');
+    }
+  }
+
+  /**
+   * Create a station card element
+   */
+  private createStationCard(station: RadioStation): HTMLElement {
+    const card = createElement('div', {
+      className: 'station-card'
+    });
+    card.dataset.stationId = station.stationuuid;
+
+    const favicon = station.favicon ? 
+      `<img src="${station.favicon}" alt="" class="station-favicon" onerror="this.style.display='none'">` : 
+      '<div class="station-favicon-placeholder">📻</div>';
+
+    const country = station.country ? 
+      `<span class="station-country">${getCountryIcon()}${station.countrycode || station.country}</span>` : '';
+    const bitrate = station.bitrate ? 
+      `<span class="station-bitrate">${getBitrateIcon()}${station.bitrate}kbps</span>` : '';
+    const votes = station.votes ? 
+      `<span class="station-votes">${getVotesIcon()}${station.votes}</span>` : '';
+
+    const isInLibrary = this.libraryStations.has(station.stationuuid);
+    const addButtonIcon = isInLibrary ? 'check' : 'playlist_add';
+    const addButtonTitle = isInLibrary ? 'Remove from library' : 'Add to library';
+    const addButtonClass = isInLibrary ? 'add-button added' : 'add-button';
+
+    card.innerHTML = `
+      <div class="station-info">
+        ${favicon}
+        <div class="station-details">
+          <h3 class="station-name">${station.name}</h3>
+          <div class="station-metadata">
+            ${country}
+            ${bitrate}
+            ${votes}
+          </div>
+          ${station.description ? `<div class="station-description">${station.description}</div>` : ''}
+        </div>
+      </div>
+      <div class="station-actions">
+        <button type="button" class="preview-button" data-action="preview" title="Preview station">
+          <span class="material-symbols-rounded">play_arrow</span>
+        </button>
+        <button type="button" class="${addButtonClass}" data-action="add" title="${addButtonTitle}">
+          <span class="material-symbols-rounded">${addButtonIcon}</span>
+        </button>
+      </div>
+    `;
+
+    // Add event listeners
+    const previewButton = querySelector('.preview-button', card);
+    const addButton = querySelector('.add-button', card);
+
+    previewButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.handlePreviewClick(station);
+    });
+
+    addButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.handleAddStation(station);
+    });
+
+    return card;
+  }
+
+  /**
+   * Handle preview button click
+   */
+  private handlePreviewClick(station: RadioStation): void {
+    if (this.previewingStation?.stationuuid === station.stationuuid) {
+      eventManager.emit('search:stop-preview');
+    } else {
+      eventManager.emit('search:preview', station);
+    }
+  }
+
+  /**
+   * Handle add/remove station button click
+   */
+  private handleAddStation(station: RadioStation): void {
+    if (this.libraryStations.has(station.stationuuid)) {
+      // Station is in library - remove it
+      // First, we need to find the station ID in the library to remove it
+      this.removeStationFromLibrary(station);
+    } else {
+      // Station is not in library - add it
+      eventManager.emit('station:add', station);
+    }
+  }
+
+  /**
+   * Remove station from library
+   */
+  private removeStationFromLibrary(station: RadioStation): void {
+    // Request removal by station UUID
+    eventManager.emit('station:remove-by-uuid', station.stationuuid);
+    eventManager.emit('notification:show', {
+      type: 'success',
+      message: `Removed "${station.name}" from your library`
+    });
+  }
+
+
+  /**
+   * Update station preview states
+   */
+  private updateStationPreviewStates(): void {
+    const stationCards = this.container.querySelectorAll('.station-card');
+    stationCards.forEach(card => {
+      const stationId = (card as HTMLElement).dataset.stationId;
+      const previewButton = card.querySelector('.preview-button') as HTMLButtonElement;
+      
+      if (this.previewingStation?.stationuuid === stationId) {
+        previewButton.classList.add('previewing');
+        previewButton.innerHTML = '<span class="material-symbols-rounded">pause</span>';
+        previewButton.title = 'Stop preview';
+      } else {
+        previewButton.classList.remove('previewing');
+        previewButton.innerHTML = '<span class="material-symbols-rounded">play_arrow</span>';
+        previewButton.title = 'Preview station';
+      }
+    });
+  }
+
+  /**
+   * Update station states based on current player
+   */
+  private updateStationStates(): void {
+    // This would update play buttons based on currently playing station
+    // Implementation depends on player state access
+  }
+
+  /**
+   * Update station library states (add button icons)
+   */
+  private updateStationLibraryStates(): void {
+    const stationCards = this.container.querySelectorAll('.station-card');
+    
+    stationCards.forEach(card => {
+      const stationId = (card as HTMLElement).dataset.stationId;
+      const addButton = card.querySelector('.add-button') as HTMLButtonElement;
+      const addButtonIcon = addButton.querySelector('.material-symbols-rounded') as HTMLElement;
+      
+      if (stationId && this.libraryStations.has(stationId)) {
+        addButton.classList.add('added');
+        addButton.title = 'Remove from library';
+        addButtonIcon.textContent = 'check';
+      } else {
+        addButton.classList.remove('added');
+        addButton.title = 'Add to library';
+        addButtonIcon.textContent = 'playlist_add';
+      }
+    });
+  }
+
+  /**
+   * Create a starter pack card element
+   */
+  private createStarterPackCard(pack: StarterPack): HTMLElement {
+    const card = createElement('div', {
+      className: 'starter-pack-card'
+    });
+
+    // Generate pack name from filename (remove .json and format)
+    const packName = pack.filename.replace('.json', '').split('-').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
+
+    // Starter pack image
+    const image = createElement('img', {
+      src: pack.data.thumbnail_path || `./starter-packs/${pack.filename.replace('.json', '-thumb.png')}`,
+      alt: `${packName} Starter Pack`,
+      className: 'starter-pack-image'
+    });
+
+    // Handle image load error
+    image.addEventListener('error', () => {
+      image.style.display = 'none';
+      // Create a fallback placeholder
+      const placeholder = createElement('div', {
+        className: 'starter-pack-image-placeholder',
+        textContent: '📻'
+      });
+      card.insertBefore(placeholder, card.firstChild);
+    });
+
+    // Starter pack content
+    const content = createElement('div', { className: 'starter-pack-card-content' }, [
+      createElement('p', { textContent: pack.data.description || 'Curated collection of radio stations' }),
+      createElement('div', { className: 'starter-pack-meta' }, [
+        createElement('span', { textContent: `${pack.data.stations?.length || 0} stations` })
+      ]),
+      createElement('button', {
+        className: 'add-starter-pack-btn'}, [
+          createElement('span', { className: 'material-symbols-rounded' }, ['add'])
+        ])
+    ]);
+
+    card.appendChild(image);
+    card.appendChild(content);
+
+    // Add event listener for the add button
+    const addBtn = content.querySelector('.add-starter-pack-btn') as HTMLButtonElement;
+    addBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.addStarterPack(pack);
+    });
+
+    return card;
+  }
+
+  /**
+   * Add a starter pack to the user's collection
+   */
+  private async addStarterPack(pack: StarterPack): Promise<void> {
+    try {
+      if (!pack.data.stations || !Array.isArray(pack.data.stations)) {
+        eventManager.emit('notification:show', {
+          type: 'error',
+          message: 'Invalid starter pack format.',
+        });
+        return;
+      }
+
+      // Convert RadioStation format to LocalStation format for import
+      const localStations: LocalStation[] = pack.data.stations.map((station) => ({
+        ...station,
+        id: station.stationuuid, // Use UUID as temporary ID - StationManager will generate proper ID
+        dateAdded: new Date().toISOString(),
+        playCount: 0,
+        isFavorite: false
+      }));
+
+      // Use the stations import event to batch add all stations with merge mode
+      eventManager.emit('stations:import-merge', localStations);
+
+      // Show success notification
+      eventManager.emit('notification:show', {
+        type: 'success',
+        message: `Starter pack added successfully! ${localStations.length} stations imported.`,
+      });
+
+      // Track achievement for adding starter pack
+      eventManager.emit('achievement:unlock', 'first_starter_pack');
+
+    } catch (error) {
+      console.error('Error loading starter pack:', error);
+      eventManager.emit('notification:show', {
+        type: 'error',
+        message: 'Failed to load starter pack.',
+      });
+    }
+  }
+
+  /**
+   * Show the view
+   * Note: Visibility is controlled by CSS body classes (body.view-search)
+   */
+  show(): void {
+    // Visibility is handled by CSS body classes - no action needed
+  }
+
+  /**
+   * Hide the view
+   * Note: Visibility is controlled by CSS body classes
+   */
+  hide(): void {
+    // Visibility is handled by CSS body classes - no action needed
+  }
+
+  /**
+   * Get the container element
+   */
+  getContainer(): HTMLElement {
+    return this.container;
+  }
+
+  /**
+   * Clean up resources
+   */
+  destroy(): void {
+    // Remove event listeners
+    eventManager.off('search:started', this.handleSearchStarted.bind(this));
+    eventManager.off('search:completed', this.handleSearchCompleted.bind(this));
+    eventManager.off('search:more-loaded', this.handleMoreLoaded.bind(this));
+    eventManager.off('search:error', this.handleSearchError.bind(this));
+    eventManager.off('search:cleared', this.handleSearchCleared.bind(this));
+    eventManager.off('search:preview-state', this.handlePreviewState.bind(this));
+    eventManager.off('player:state-changed', this.handlePlayerStateChanged.bind(this));
+    eventManager.off('station:added', this.handleStationAdded.bind(this));
+    eventManager.off('station:removed', this.handleStationRemoved.bind(this));
+    eventManager.off('stations:loaded', this.handleStationsLoaded.bind(this));
+
+    this.container.remove();
+  }
+}
