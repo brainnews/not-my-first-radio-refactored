@@ -591,8 +591,11 @@ export class App {
     });
 
     // Track listening time for achievements
-    eventManager.on('player:listening-time', (timeMs) => {
-      this.achievementManager.trackProgress('listeningTime', timeMs);
+    eventManager.on('player:listening-time', (data: { totalTime: number, station: any }) => {
+      // Use setTimeout to ensure UserManager syncs global totals first
+      setTimeout(() => {
+        this.achievementManager.trackProgress('listeningTime', data.totalTime);
+      }, 0);
     });
 
     // View navigation integration

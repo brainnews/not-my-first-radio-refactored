@@ -638,8 +638,10 @@ export class AchievementManager {
         this.checkAchievements('station:play', data);
         break;
       case 'listeningTime':
-        // Note: totalPlayTime is now managed by UserManager through per-station data
-        this.checkAchievements('station:play');
+        // Force reload user stats from storage to get latest totalPlayTime
+        this.userStats = getStorageItem<UserStats>(StorageKeys.USER_STATS, this.getDefaultUserStats());
+        // Check listening achievements with current stats
+        this.checkListeningAchievements(data);
         break;
       case 'qrShare':
       case 'urlShare':

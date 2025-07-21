@@ -225,6 +225,7 @@ header h1 {
 
 main {
     flex: 1;
+    margin-bottom: 100px;
 }
 
 /* Station section styles */
@@ -5245,6 +5246,8 @@ body:has(.navigation-side-nav.navigation-right) .app-container {
     right: 0;
     width: 100%;
     height: 70px;
+    background-color: var(--bg-secondary);
+    padding: 0;
   }
   
   .tab-item {
