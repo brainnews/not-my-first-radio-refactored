@@ -167,20 +167,15 @@ export class Router {
    * Navigate to a route object
    */
   private navigateToRoute(route: Route, pushState: boolean = true): void {
-    // Don't navigate if already on this route
-    if (this.currentRoute?.path === route.path) {
-      return;
-    }
-
     const previousRoute = this.currentRoute;
     this.currentRoute = route;
 
-    // Update browser URL if needed
-    if (pushState) {
+    // Update browser URL if needed (only if not already on this route to avoid duplicate history entries)
+    if (pushState && previousRoute?.path !== route.path) {
       this.updateBrowserUrl(route.path);
     }
 
-    // Emit view change event for the app to handle
+    // Always emit view change event to ensure proper view activation
     eventManager.emit('view:change', route.view);
 
     console.log(`[Router] Navigated from ${previousRoute?.path || 'initial'} to ${route.path}`);

@@ -6,7 +6,7 @@ import { LocalStation } from '@/types/station';
 import { createElement, querySelector } from '@/utils/dom';
 import { eventManager } from '@/utils/events';
 import { getStorageItem, StorageKeys } from '@/utils/storage';
-import { getAnimatedEqualizerIcon } from '@/utils/icons';
+import { getAnimatedEqualizerIcon, getBitrateIcon } from '@/utils/icons';
 
 export interface LibraryViewConfig {
   container?: HTMLElement;
@@ -65,8 +65,10 @@ export class LibraryView {
     this.container.innerHTML = '';
     this.container.className = 'library-view';
 
-    // Create library header
-    this.renderHeader();
+    // Only render header if there are stations
+    if (this.stations.length > 0) {
+      this.renderHeader();
+    }
 
     // Create main library content
     this.renderContent();
@@ -124,30 +126,25 @@ export class LibraryView {
     const emptyState = createElement('div', { className: 'library-empty-state' });
 
     const icon = createElement('div', { className: 'library-empty-icon' });
-    icon.innerHTML = '<span class="material-symbols-rounded">library_music</span>';
-
-    const title = createElement('h3', { className: 'library-empty-title' }, [
-      'Start building your library'
-    ]);
+    icon.innerHTML = getBitrateIcon({ size: 48 });
 
     const description = createElement('p', { className: 'library-empty-description' }, [
-      'Add radio stations to your personal collection. Your stations will appear here.'
+      'Not My First Radio is a lightweight, private, and local first radio player. Use natural language to search over 30,000 stations or start listening right away with a curated starter pack. No account required.'
     ]);
 
     const actions = createElement('div', { className: 'library-empty-actions' });
 
-    // Add manually button
-    const addButton = createElement('button', { className: 'library-empty-btn library-empty-btn-primary' }, [
-      'Add Station'
+    // Search for stations button
+    const searchButton = createElement('button', { className: 'library-empty-btn library-empty-btn-primary' }, [
+      'Get started'
     ]);
-    addButton.addEventListener('click', () => {
-      eventManager.emit('modal:add-station');
+    searchButton.addEventListener('click', () => {
+      eventManager.emit('view:search');
     });
 
-    actions.appendChild(addButton);
+    actions.appendChild(searchButton);
 
     emptyState.appendChild(icon);
-    emptyState.appendChild(title);
     emptyState.appendChild(description);
     emptyState.appendChild(actions);
 

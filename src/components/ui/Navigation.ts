@@ -180,8 +180,7 @@ export class Navigation {
    * Switch to a specific view
    */
   private switchToView(view: 'library' | 'settings' | 'search'): void {
-    if (view === this.currentView) return;
-
+    // Always allow navigation to ensure proper view activation
     // Use router to navigate, which will handle URL updates and emit events
     router.navigateToView(view);
   }
