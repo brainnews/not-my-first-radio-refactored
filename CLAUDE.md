@@ -14,6 +14,11 @@ npm run lint         # ESLint code quality checks
 npm run lint:fix     # Auto-fix ESLint issues
 npm run test         # Run Vitest test suite
 npm run test:coverage # Run tests with coverage report
+
+# Cloudflare Pages Deployment
+npm run pages:build  # Build with type-check and lint validation
+npm run pages:deploy # Deploy to Cloudflare Pages production
+npm run pages:deploy:preview # Deploy to preview environment
 ```
 
 **Important**: Always run `npm run type-check` and `npm run lint` after making changes to ensure code quality. The build process includes PWA generation, so `npm run build` handles service worker and manifest updates.
@@ -197,3 +202,19 @@ import { radioBrowserApi } from '@/services/api/radioBrowserApi';
 **Legacy Support**: Configured for ES2015 compatibility
 **Bundle Analysis**: Manual chunks defined for vendor code and utilities
 **CSS Processing**: Includes hash-based asset naming for cache busting
+
+### Deployment
+
+**Platform**: Cloudflare Pages with global CDN distribution
+**Configuration**: wrangler.toml defines project settings and build output directory
+**Process**: 
+1. `npm run pages:build` - Validates TypeScript and ESLint, then builds
+2. `npm run pages:deploy` - Deploys to production via Wrangler CLI
+3. Custom domain configuration via Cloudflare dashboard
+
+**Benefits of Cloudflare Pages**:
+- Global CDN with edge caching
+- Automatic HTTPS and security headers
+- Git integration for automatic deployments
+- Built-in analytics and performance monitoring
+- Superior performance vs GitHub Pages

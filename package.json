@@ -11,7 +11,10 @@
     "lint": "eslint src --ext .ts,.js",
     "lint:fix": "eslint src --ext .ts,.js --fix",
     "test": "vitest",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "pages:build": "npm run type-check && npm run lint && npm run build",
+    "pages:deploy": "wrangler pages deploy dist --project-name not-my-first-radio",
+    "pages:deploy:preview": "wrangler pages deploy dist --project-name not-my-first-radio --env preview"
   },
   "dependencies": {
     "jsqr": "^1.4.0",

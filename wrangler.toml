@@ -1,0 +1,13 @@
+name = "not-my-first-radio"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "dist"
+
+[env.production]
+name = "not-my-first-radio"
+
+[env.preview]
+name = "not-my-first-radio-preview"
+
+# Environment variables (if needed in the future)
+[vars]
+# Add any environment variables here if needed
