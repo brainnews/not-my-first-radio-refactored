@@ -7,6 +7,7 @@ import { SearchResult, SearchFilters } from '@/modules/search/SearchManager';
 import { createElement, querySelector } from '@/utils/dom';
 import { eventManager } from '@/utils/events';
 import { getCountryIcon, getBitrateIcon, getVotesIcon } from '@/utils/icons';
+import { PlaceholderManager } from '@/utils/placeholderManager';
 
 interface StarterPack {
   filename: string;
@@ -33,6 +34,7 @@ export class SearchView {
   private loadingIndicator!: HTMLElement;
   private emptyState!: HTMLElement;
   private loadMoreButton!: HTMLButtonElement;
+  private placeholderManager!: PlaceholderManager;
   
   private currentResults: RadioStation[] = [];
   private currentQuery = '';
@@ -80,7 +82,7 @@ export class SearchView {
         </div>
       </div>
       <div class="search-input-container">
-        <input type="text" id="search-input" placeholder="Search for stations, genres, countries..." autocomplete="off">
+        <input type="text" id="search-input" placeholder="" autocomplete="off">
         <button type="button" id="search-clear" class="search-clear" aria-label="Clear search">
           <span class="icon">✕</span>
         </button>
@@ -175,6 +177,18 @@ export class SearchView {
     this.loadMoreButton = querySelector('#load-more', this.container) as HTMLButtonElement;
 
     this.setupFilterOptions();
+    this.initializePlaceholderManager();
+  }
+
+  /**
+   * Initialize the dynamic placeholder manager
+   */
+  private initializePlaceholderManager(): void {
+    this.placeholderManager = new PlaceholderManager(this.searchInput, {
+      rotationInterval: 3500, // 3.5 seconds
+      enableTransitions: true,
+      pauseOnFocus: true
+    });
   }
 
   /**
@@ -981,6 +995,11 @@ export class SearchView {
    * Clean up resources
    */
   destroy(): void {
+    // Clean up placeholder manager
+    if (this.placeholderManager) {
+      this.placeholderManager.destroy();
+    }
+
     // Remove event listeners
     eventManager.off('search:started', this.handleSearchStarted.bind(this));
     eventManager.off('search:completed', this.handleSearchCompleted.bind(this));

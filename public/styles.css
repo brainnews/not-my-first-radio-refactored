@@ -6097,6 +6097,15 @@ body.view-search .search-view {
   border-color: var(--accent-color);
 }
 
+/* Dynamic placeholder transitions */
+.search-input-container input::placeholder {
+  transition: opacity 0.3s ease;
+}
+
+.search-input-container input.placeholder-transitioning::placeholder {
+  opacity: 0;
+}
+
 .search-clear {
   position: absolute;
   right: 2rem;

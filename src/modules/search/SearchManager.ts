@@ -4,6 +4,7 @@
 
 import { RadioStation, SearchParams } from '@/types/station';
 import { radioBrowserApi, expandSearchTerms } from '@/services/api/radioBrowserApi';
+import { mcpRadioBrowserApi } from '@/services/api/mcpRadioBrowserApi';
 import { eventManager } from '@/utils/events';
 
 export interface SearchResult {
@@ -27,6 +28,7 @@ export interface SearchManagerConfig {
   debounceMs?: number;
   pageSize?: number;
   maxResults?: number;
+  enableMcpSearch?: boolean;
 }
 
 /**
@@ -46,11 +48,13 @@ export class SearchManager {
   private readonly debounceMs: number;
   private readonly pageSize: number;
   private readonly maxResults: number;
+  private readonly enableMcpSearch: boolean;
 
   constructor(config: SearchManagerConfig = {}) {
     this.debounceMs = config.debounceMs ?? 500;
     this.pageSize = config.pageSize ?? 20;
     this.maxResults = config.maxResults ?? 200;
+    this.enableMcpSearch = config.enableMcpSearch ?? true;
 
     this.setupEventListeners();
     this.createPreviewAudio();
@@ -264,46 +268,37 @@ export class SearchManager {
     this.lastSearchTime = Date.now();
 
     try {
-      // Build base search parameters
-      const searchParams: SearchParams = {
-        limit: this.pageSize,
-        offset: this.currentOffset,
-        order: this.currentFilters.order || 'votes',
-        reverse: this.currentFilters.reverse !== false, // Default to true for relevance
-        ...this.currentFilters
-      };
+      let result;
+      let stations: RadioStation[] = [];
 
-      // Add name parameter only if we have a text query
-      if (this.currentQuery) {
-        const expandedTerms = expandSearchTerms(this.currentQuery);
-        const primaryTerm = expandedTerms[0];
-        searchParams.name = primaryTerm;
-      }
+      // Determine search strategy based on query and filters
+      const hasTextQuery = this.currentQuery.trim().length > 0;
+      const hasFilters = this.hasActiveFilters(this.currentFilters);
+      const shouldUseMcp = this.enableMcpSearch && hasTextQuery && !loadMore && this.currentOffset === 0;
 
-      // Map genre filter to tag parameter for API
-      if (this.currentFilters.genre) {
-        searchParams.tag = this.currentFilters.genre;
-      }
-
-      // Map minBitrate to bitrate parameter for API
-      if (this.currentFilters.minBitrate) {
-        searchParams.bitrate = this.currentFilters.minBitrate;
-      }
-
-      // Remove undefined values
-      Object.keys(searchParams).forEach(key => {
-        if (searchParams[key as keyof SearchParams] === undefined) {
-          delete searchParams[key as keyof SearchParams];
+      if (shouldUseMcp && !hasFilters) {
+        // Use MCP for natural language search when we have text query and no filters
+        console.log('[SearchManager] Using MCP natural language search');
+        result = await mcpRadioBrowserApi.searchStationsNatural(this.currentQuery, this.pageSize);
+        
+        if (result.success) {
+          stations = result.data || [];
+        } else {
+          // Fallback to regular API if MCP fails
+          console.log('[SearchManager] MCP search failed, falling back to regular API');
+          result = await this.performRegularSearch();
+          stations = result.data || [];
         }
-      });
-
-      const result = await radioBrowserApi.searchStations(searchParams);
+      } else {
+        // Use regular API for structured searches, filters, or pagination
+        result = await this.performRegularSearch();
+        stations = result.data || [];
+      }
 
       if (!result.success) {
         throw new Error(result.error || 'Search failed');
       }
 
-      const stations = result.data || [];
       const hasMore = stations.length === this.pageSize && this.currentOffset + stations.length < this.maxResults;
 
       const searchResult: SearchResult = {
@@ -330,6 +325,46 @@ export class SearchManager {
     } finally {
       this.isSearching = false;
     }
+  }
+
+  /**
+   * Perform regular Radio Browser API search
+   */
+  private async performRegularSearch() {
+    // Build base search parameters
+    const searchParams: SearchParams = {
+      limit: this.pageSize,
+      offset: this.currentOffset,
+      order: this.currentFilters.order || 'votes',
+      reverse: this.currentFilters.reverse !== false, // Default to true for relevance
+      ...this.currentFilters
+    };
+
+    // Add name parameter only if we have a text query
+    if (this.currentQuery) {
+      const expandedTerms = expandSearchTerms(this.currentQuery);
+      const primaryTerm = expandedTerms[0];
+      searchParams.name = primaryTerm;
+    }
+
+    // Map genre filter to tag parameter for API
+    if (this.currentFilters.genre) {
+      searchParams.tag = this.currentFilters.genre;
+    }
+
+    // Map minBitrate to bitrate parameter for API
+    if (this.currentFilters.minBitrate) {
+      searchParams.bitrate = this.currentFilters.minBitrate;
+    }
+
+    // Remove undefined values
+    Object.keys(searchParams).forEach(key => {
+      if (searchParams[key as keyof SearchParams] === undefined) {
+        delete searchParams[key as keyof SearchParams];
+      }
+    });
+
+    return radioBrowserApi.searchStations(searchParams);
   }
 
   /**
