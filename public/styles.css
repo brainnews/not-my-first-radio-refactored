@@ -1367,6 +1367,7 @@ main {
     }
     .player-bar {
         padding: 0.75rem;
+        bottom: 70px;
     }
 
     .now-playing {
