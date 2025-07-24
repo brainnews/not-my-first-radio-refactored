@@ -8,6 +8,7 @@ import { createElement, querySelector } from '@/utils/dom';
 import { eventManager } from '@/utils/events';
 import { getCountryIcon, getBitrateIcon, getVotesIcon } from '@/utils/icons';
 import { PlaceholderManager } from '@/utils/placeholderManager';
+import { getStorageItem, setStorageItem, StorageKeys } from '@/utils/storage';
 
 interface StarterPack {
   filename: string;
@@ -22,6 +23,10 @@ interface StarterPack {
 
 export interface SearchViewConfig {
   container?: HTMLElement;
+}
+
+interface SearchSortPreference {
+  order: string;
 }
 
 /**
@@ -41,6 +46,7 @@ export class SearchView {
   private currentFilters: SearchFilters = {};
   private hasMore = false;
   private previewingStation: RadioStation | null = null;
+  private loadingPreviewStation: RadioStation | null = null;
   private libraryStations: Set<string> = new Set(); // Track station UUIDs in library
 
   constructor(config: SearchViewConfig = {}) {
@@ -49,6 +55,7 @@ export class SearchView {
     this.setupEventListeners();
     this.requestLibraryState();
     this.loadStarterPacks();
+    this.restoreSearchSortPreferences();
   }
 
   /**
@@ -152,11 +159,12 @@ export class SearchView {
             <div class="results-controls">
               <div class="filter-group">
                 <label for="sort-filter">Sort by:</label>
-                <select id="sort-filter">
-                  <option value="votes">Popularity</option>
-                  <option value="name">Name</option>
-                  <option value="clickcount">Most Played</option>
-                  <option value="bitrate">Quality</option>
+                <select id="sort-filter" title="Choose how to sort search results">
+                  <option value="votes">Popularity (Most Voted)</option>
+                  <option value="clicktrend">Trending (Currently Popular)</option>
+                  <option value="bitrate">Quality (Bitrate)</option>
+                  <option value="lastcheckok">Reliability (Recently Checked)</option>
+                  <option value="random">Random</option>
                 </select>
               </div>
             </div>
@@ -347,9 +355,12 @@ export class SearchView {
       country: countryFilter.value || undefined,
       genre: genreFilter.value || undefined,
       minBitrate: bitrateFilter.value ? parseInt(bitrateFilter.value) : undefined,
-      order: sortFilter.value as 'name' | 'votes' | 'clickcount' | 'bitrate',
-      reverse: sortFilter.value !== 'name' // Reverse for all except name
+      order: sortFilter.value as 'votes' | 'clicktrend' | 'bitrate' | 'lastcheckok' | 'random',
+      reverse: true // All remaining sort options use descending order
     };
+
+    // Save search sort preferences
+    this.saveSearchSortPreferences();
 
     // Always trigger search when filters change, even without text query
     eventManager.emit('search:execute', { query: this.currentQuery, filters: this.currentFilters });
@@ -393,12 +404,11 @@ export class SearchView {
     const clearFiltersButton = querySelector('#clear-filters', this.container) as HTMLButtonElement;
     const filtersToggle = querySelector('#filters-toggle', this.container);
     
-    // Check if any filters are active
+    // Check if any filters are active (excluding sort order, which is not a filter)
     const hasActiveFilters = !!(
       this.currentFilters.country ||
       this.currentFilters.genre ||
-      this.currentFilters.minBitrate ||
-      (this.currentFilters.order && this.currentFilters.order !== 'votes')
+      this.currentFilters.minBitrate
     );
 
     // Show/hide clear filters button based on active state
@@ -416,8 +426,7 @@ export class SearchView {
       const activeCount = [
         this.currentFilters.country,
         this.currentFilters.genre,
-        this.currentFilters.minBitrate,
-        this.currentFilters.order !== 'votes' ? this.currentFilters.order : null
+        this.currentFilters.minBitrate
       ].filter(Boolean).length;
       
       filtersToggleText.textContent = `Advanced Filters (${activeCount})`;
@@ -425,6 +434,7 @@ export class SearchView {
       filtersToggleText.textContent = 'Advanced Filters';
     }
   }
+
 
   /**
    * Toggle advanced filters visibility
@@ -574,10 +584,15 @@ export class SearchView {
   private handlePreviewState(data: { state: string; station: RadioStation | null }): void {
     const { state, station } = data;
     
-    if (state === 'playing') {
+    if (state === 'loading') {
+      this.loadingPreviewStation = station;
+      this.previewingStation = null;
+    } else if (state === 'playing') {
       this.previewingStation = station;
+      this.loadingPreviewStation = null;
     } else if (state === 'stopped' || state === 'error') {
       this.previewingStation = null;
+      this.loadingPreviewStation = null;
     }
     
     this.updateStationPreviewStates();
@@ -826,14 +841,23 @@ export class SearchView {
       const stationId = (card as HTMLElement).dataset.stationId;
       const previewButton = card.querySelector('.preview-button') as HTMLButtonElement;
       
-      if (this.previewingStation?.stationuuid === stationId) {
+      if (this.loadingPreviewStation?.stationuuid === stationId) {
+        previewButton.classList.remove('previewing');
+        previewButton.classList.add('loading');
+        previewButton.innerHTML = '<div class="loading-spinner"></div>';
+        previewButton.title = 'Loading preview...';
+        previewButton.disabled = true;
+      } else if (this.previewingStation?.stationuuid === stationId) {
+        previewButton.classList.remove('loading');
         previewButton.classList.add('previewing');
         previewButton.innerHTML = '<span class="material-symbols-rounded">pause</span>';
         previewButton.title = 'Stop preview';
+        previewButton.disabled = false;
       } else {
-        previewButton.classList.remove('previewing');
+        previewButton.classList.remove('previewing', 'loading');
         previewButton.innerHTML = '<span class="material-symbols-rounded">play_arrow</span>';
         previewButton.title = 'Preview station';
+        previewButton.disabled = false;
       }
     });
   }
@@ -966,6 +990,35 @@ export class SearchView {
         message: 'Failed to load starter pack.',
       });
     }
+  }
+
+  /**
+   * Save search sort preferences to localStorage
+   */
+  private saveSearchSortPreferences(): void {
+    const preferences: SearchSortPreference = {
+      order: this.currentFilters.order || 'votes'
+    };
+    
+    setStorageItem(StorageKeys.SEARCH_SORT_PREFERENCE, preferences);
+  }
+
+  /**
+   * Restore search sort preferences from localStorage
+   */
+  private restoreSearchSortPreferences(): void {
+    const preferences = getStorageItem<SearchSortPreference>(
+      StorageKeys.SEARCH_SORT_PREFERENCE,
+      { order: 'votes' }
+    );
+
+    // Apply restored preferences
+    const sortFilter = querySelector('#sort-filter', this.container) as HTMLSelectElement;
+    sortFilter.value = preferences.order;
+
+    // Update filters without triggering search (since no search is active yet)
+    this.currentFilters.order = preferences.order as any;
+    this.currentFilters.reverse = true; // All remaining sort options use descending order
   }
 
   /**

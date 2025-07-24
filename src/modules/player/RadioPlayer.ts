@@ -119,9 +119,14 @@ export class RadioPlayer {
     });
 
     this.audio.addEventListener('timeupdate', () => {
-      this.updatePlayerState({
-        currentTime: this.audio.currentTime,
-        duration: this.audio.duration || 0
+      // Update internal state for time only
+      this.playerState.currentTime = this.audio.currentTime;
+      this.playerState.duration = this.audio.duration || 0;
+      
+      // Emit time-only event for achievement tracking and other time-based listeners
+      eventManager.emit('player:time-changed', {
+        currentTime: this.playerState.currentTime,
+        duration: this.playerState.duration
       });
       
       // Track listening time for achievements

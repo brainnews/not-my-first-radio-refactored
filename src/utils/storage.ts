@@ -16,6 +16,7 @@ export enum StorageKeys {
   SECTION_STATES = 'sectionStates',
   EXPLORED_COUNTRIES = 'exploredCountries',
   STATION_SORT_PREFERENCE = 'stationSortPreference',
+  SEARCH_SORT_PREFERENCE = 'searchSortPreference',
   STATION_LISTENING_TIMES = 'stationListeningTimes'
 }
 

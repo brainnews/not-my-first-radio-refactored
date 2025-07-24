@@ -76,7 +76,7 @@ export interface SearchParams {
   tag?: string;
   codec?: string;
   bitrate?: number;
-  order?: 'name' | 'votes' | 'clickcount' | 'bitrate' | 'country';
+  order?: 'name' | 'votes' | 'clickcount' | 'clicktrend' | 'bitrate' | 'lastcheckok' | 'country' | 'random';
   reverse?: boolean;
   offset?: number;
   limit?: number;

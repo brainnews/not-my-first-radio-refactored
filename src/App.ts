@@ -46,6 +46,14 @@ export class App {
   private state: AppState;
   private isInitialized = false;
   private isDestroyed = false;
+  private previousPlayerUIState: {
+    stationName?: string;
+    stationDetails?: string;
+    faviconUrl?: string;
+    isPlaying?: boolean;
+    isLoading?: boolean;
+  } = {};
+  private faviconInitialsCache: Map<string, HTMLImageElement> = new Map();
 
   // Module instances
   private radioPlayer!: RadioPlayer;
@@ -66,7 +74,7 @@ export class App {
   constructor(config: AppConfig = {}) {
     this.config = {
       version: '2.0.0',
-      debug: false,
+      debug: true,
       autoInit: true,
       ...config
     };
@@ -83,7 +91,6 @@ export class App {
     };
 
     // Set debug mode
-    console.log(this.config.debug);
     if (this.config.debug) {
       eventManager.setDebugMode(true);
       console.log('[App] Debug mode enabled');
@@ -502,6 +509,15 @@ export class App {
     eventManager.on('player:pause', () => {
       this.radioPlayer.pause();
     });
+    // Listen for volume changes from keyboard shortcuts
+    eventManager.on('player:volume-changed', (volume) => {
+      this.state.volume = volume;
+      this.updateVolumeControls();
+    });
+    // Listen for mute toggle events
+    eventManager.on('player:mute-toggled', () => {
+      this.updateVolumeControls();
+    });
 
     // Listen for station selection to update UI immediately
     eventManager.on('station:selected', (station) => {
@@ -598,9 +614,10 @@ export class App {
       }, 0);
     });
 
-    // View navigation integration
+    // View navigation integration  
     eventManager.on('view:change', (view: 'library' | 'settings' | 'search') => {
-      this.switchView(view);
+      // For router-driven changes, just update state without emitting more events
+      this.updateViewState(view);
     });
 
     eventManager.on('view:library', () => {
@@ -615,104 +632,82 @@ export class App {
       this.switchView('settings');
     });
 
+    // Handle preview transfer to main player
+    eventManager.on('search:transfer-to-main', (data) => {
+      this.handlePreviewTransfer(data);
+    });
+
     console.log('[App] Module integration set up');
   }
 
   /**
-   * Switch to a different view with smooth transitions
+   * Update view state from Router (no event emissions to avoid loops)
    */
-  private switchView(view: 'library' | 'settings' | 'search'): void {
+  private updateViewState(view: 'library' | 'settings' | 'search'): void {
     const previousView = this.state.currentView;
     
     // Skip if switching to the same view
     if (previousView === view) return;
     
+    // Handle preview transfer directly when switching away from search
+    if (previousView === 'search' && view !== 'search') {
+      const searchPreviewState = this.searchManager?.getCurrentPreviewState();
+      if (searchPreviewState?.isPlaying && searchPreviewState.station) {
+        console.log('[App] Transferring preview to main player');
+        this.handlePreviewTransfer({
+          station: searchPreviewState.station,
+          currentTime: 0 // We don't have current time from the simplified state
+        });
+      }
+    }
+    
+    // Update the view state
+    this.state.currentView = view;
+    this.updateViewUI(view, previousView);
+    
+    console.log(`[App] Router changed view from ${previousView} to ${view}`);
+  }
+
+  /**
+   * Switch to a different view (public method that emits events)
+   */
+  private switchView(view: 'library' | 'settings' | 'search'): void {
+    this.switchViewInternal(view, true);
+  }
+
+  /**
+   * Internal view switching implementation
+   */
+  private switchViewInternal(view: 'library' | 'settings' | 'search', emitEvents: boolean): void {
+    const previousView = this.state.currentView;
+    
+    // Skip if switching to the same view
+    if (previousView === view) return;
+    
+    // Emit view change event BEFORE switching (for preview transfer detection) - only if requested
+    if (emitEvents) {
+      eventManager.emit('view:change', { 
+        from: previousView, 
+        to: view 
+      });
+    }
+    
     this.state.currentView = view;
     
-    // Add transitioning class to body for smooth animations
-    document.body.classList.add('view-transitioning');
+    // Update UI immediately without transitions for better performance
+    this.updateViewUI(view, previousView);
     
-    // Start exit transition for previous view
-    this.startExitTransition(previousView);
+    // Emit view changed event for other modules - only if requested
+    if (emitEvents) {
+      eventManager.emit('view:changed', { 
+        currentView: view, 
+        previousView 
+      });
+    }
     
-    // Start enter transition for new view after a brief delay
-    setTimeout(() => {
-      this.updateViewUI(view, previousView);
-      this.startEnterTransition(view);
-    }, 150);
-    
-    // Remove transitioning class after animation completes
-    setTimeout(() => {
-      document.body.classList.remove('view-transitioning');
-    }, 500);
-    
-    // Emit view change event for other modules
-    eventManager.emit('view:changed', { 
-      currentView: view, 
-      previousView 
-    });
-    
-    console.log(`[App] Smoothly transitioned from ${previousView} to ${view} view`);
+    console.log(`[App] Switched from ${previousView} to ${view} view`);
   }
 
-  /**
-   * Start exit transition for the previous view
-   */
-  private startExitTransition(view: 'library' | 'settings' | 'search'): void {
-    let container: HTMLElement | null = null;
-    
-    switch (view) {
-      case 'library':
-        container = this.libraryView?.getContainer() || null;
-        break;
-      case 'settings':
-        container = this.settingsView?.getContainer() || null;
-        break;
-      case 'search':
-        container = this.searchView?.getContainer() || null;
-        break;
-    }
-    
-    if (container) {
-      container.classList.add('exiting');
-      // Remove exiting class after transition
-      setTimeout(() => {
-        container?.classList.remove('exiting');
-      }, 150);
-    }
-  }
-
-  /**
-   * Start enter transition for the new view
-   */
-  private startEnterTransition(view: 'library' | 'settings' | 'search'): void {
-    let container: HTMLElement | null = null;
-    
-    switch (view) {
-      case 'library':
-        container = this.libraryView?.getContainer() || null;
-        break;
-      case 'settings':
-        container = this.settingsView?.getContainer() || null;
-        break;
-      case 'search':
-        container = this.searchView?.getContainer() || null;
-        break;
-    }
-    
-    if (container) {
-      container.classList.remove('exiting');
-      // The animations are now handled by CSS body classes
-      // Just trigger the entry animation with body class timing
-      setTimeout(() => {
-        container?.classList.add('animate-in');
-        // Remove animation class after completion
-        setTimeout(() => {
-          container?.classList.remove('animate-in');
-        }, 400);
-      }, 50);
-    }
-  }
 
   /**
    * Update UI elements for the current view
@@ -893,13 +888,13 @@ export class App {
       // Settings close button (legacy)
       const closeBtn = querySelector('#close-settings');
       closeBtn.addEventListener('click', () => {
-        const settingsPanel = querySelector('#settings-panel');
-        const settingsOverlay = querySelector('#settings-overlay');
+        const settingsPanel = querySelector('#settings-panel') as HTMLElement;
+        const settingsOverlay = querySelector('#settings-overlay') as HTMLElement;
         this.closeSettingsPanel(settingsPanel, settingsOverlay);
       });
 
       // Prevent settings panel clicks from closing when clicking inside panel (legacy)
-      const settingsPanel = querySelector('#settings-panel');
+      const settingsPanel = querySelector('#settings-panel') as HTMLElement;
       settingsPanel.addEventListener('click', (e) => {
         e.stopPropagation();
       });
@@ -1042,7 +1037,7 @@ export class App {
       // Save username on Enter key
       usernameInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
-          saveUsernameBtn.click();
+          (saveUsernameBtn as HTMLButtonElement).click();
         }
       });
     } catch (error) {
@@ -1690,6 +1685,43 @@ export class App {
   }
 
   /**
+   * Handle preview transfer to main player
+   */
+  private async handlePreviewTransfer(data: { station: any; currentTime: number }): Promise<void> {
+    try {
+      console.log('[App] Transferring preview to main player:', data.station.name);
+      
+      // Convert the preview station to LocalStation format if needed
+      const stationToPlay = {
+        ...data.station,
+        // Ensure it has the required LocalStation properties
+        id: data.station.id || `transfer_${Date.now()}`,
+        dateAdded: data.station.dateAdded || new Date().toISOString(),
+        playCount: data.station.playCount || 0,
+        isFavorite: data.station.isFavorite || false
+      };
+      
+      // Load and play the station in the main player
+      await this.radioPlayer.loadStation(stationToPlay);
+      await this.radioPlayer.play();
+      
+      // Update app state
+      this.state.currentStation = stationToPlay;
+      
+      // Update UI to reflect the new playing station
+      this.updatePlayerUI(this.radioPlayer.getState());
+      
+      // Emit events for tracking
+      eventManager.emit('station:play', stationToPlay);
+      eventManager.emit('station:selected', stationToPlay);
+      
+    } catch (error) {
+      console.error('[App] Failed to transfer preview to main player:', error);
+      this.notificationManager.error('Failed to transfer preview to main player');
+    }
+  }
+
+  /**
    * Update player UI elements
    */
   private updatePlayerUI(playerState: any): void {
@@ -1699,97 +1731,217 @@ export class App {
     const playPauseBtn = querySelector('#play-pause');
     const nowPlaying = querySelector('.now-playing');
 
+    // Build current UI state for comparison
+    const currentUIState = {
+      stationName: this.state.currentStation?.name || 'Select a station',
+      stationDetails: this.state.currentStation ? this.buildStationDetails(this.state.currentStation) : '',
+      faviconUrl: this.state.currentStation?.favicon || '',
+      isPlaying: playerState.isPlaying,
+      isLoading: playerState.isLoading
+    };
+
     if (this.state.currentStation) {
       // Show player bar
       playerBar.classList.add('active');
       
-      // Update station info
-      stationName.textContent = this.state.currentStation.name;
-      
-      // Update page title when station is playing
-      this.updatePageTitle();
-      
-      // Build station details string
-      const details = [];
-      if (this.state.currentStation.bitrate && this.state.currentStation.bitrate > 0) {
-        details.push(`${this.state.currentStation.bitrate}kbps`);
+      // Update station info only if changed
+      if (this.previousPlayerUIState.stationName !== currentUIState.stationName) {
+        stationName.textContent = currentUIState.stationName;
+        this.updatePageTitle(); // Only update when station name changes
       }
-      if (this.state.currentStation.countrycode || this.state.currentStation.country) {
-        details.push(this.state.currentStation.countrycode || this.state.currentStation.country);
+      
+      // Update station details only if changed
+      if (this.previousPlayerUIState.stationDetails !== currentUIState.stationDetails) {
+        stationDetails.textContent = currentUIState.stationDetails;
       }
-      stationDetails.textContent = details.join(' • ');
       
-      // Update favicon
-      const faviconContainer = querySelector('#current-favicon-container');
-      
-      if (this.state.currentStation.favicon) {
-        // Clear any existing content
-        faviconContainer.innerHTML = '';
-        
-        // Create new img element with error handling
-        const imgElement = document.createElement('img');
-        imgElement.id = 'current-favicon';
-        imgElement.className = 'current-favicon';
-        imgElement.src = this.state.currentStation.favicon;
-        imgElement.alt = 'Station logo';
-        
-        // Add error handler to show initials if favicon fails to load
-        imgElement.addEventListener('error', () => {
-          const initialsImg = createStationInitialsImage(this.state.currentStation.customName || this.state.currentStation.name, 48);
-          faviconContainer.innerHTML = '';
-          faviconContainer.appendChild(initialsImg);
-        });
-        
-        faviconContainer.appendChild(imgElement);
-      } else {
-        // No favicon available, show initials
-        faviconContainer.innerHTML = ''; // Clear existing content first
-        const initialsImg = createStationInitialsImage(this.state.currentStation.customName || this.state.currentStation.name, 48);
-        faviconContainer.appendChild(initialsImg);
+      // Update favicon only if changed
+      if (this.previousPlayerUIState.faviconUrl !== currentUIState.faviconUrl) {
+        this.updateFaviconContainer(this.state.currentStation);
       }
 
-      // Handle loading state
-      if (playerState.isLoading) {
-        nowPlaying.classList.add('loading');
+      // Handle loading state only if changed
+      if (this.previousPlayerUIState.isLoading !== currentUIState.isLoading) {
         const staticDiv = querySelector('.static');
-        staticDiv.classList.remove('hidden');
-      } else {
-        nowPlaying.classList.remove('loading');
-        const staticDiv = querySelector('.static');
-        staticDiv.classList.add('hidden');
+        if (playerState.isLoading) {
+          nowPlaying.classList.add('loading');
+          staticDiv.classList.remove('hidden');
+        } else {
+          nowPlaying.classList.remove('loading');
+          staticDiv.classList.add('hidden');
+        }
       }
     } else {
-      // Hide player bar when no station
-      playerBar.classList.remove('active');
-      stationName.textContent = 'Select a station';
-      stationDetails.textContent = '';
-      
-      // Clear favicon container
-      const faviconContainer = querySelector('#current-favicon-container');
-      faviconContainer.innerHTML = '';
-      
-      // Reset page title when no station
-      this.updatePageTitle();
+      // Hide player bar when no station (only if previously had station)
+      if (this.previousPlayerUIState.stationName !== 'Select a station') {
+        playerBar.classList.remove('active');
+        stationName.textContent = 'Select a station';
+        stationDetails.textContent = '';
+        
+        // Clear favicon container
+        const faviconContainer = querySelector('#current-favicon-container');
+        faviconContainer.innerHTML = '';
+        
+        // Reset page title when no station
+        this.updatePageTitle();
+      }
     }
 
-    // Update play/pause button
-    const playIcon = playPauseBtn.querySelector('.material-symbols-rounded');
-    if (playIcon) {
-      if (playerState.isLoading) {
-        playIcon.textContent = 'progress_activity';
-        playIcon.classList.add('spinning');
-      } else {
-        playIcon.textContent = playerState.isPlaying ? 'pause' : 'play_arrow';
-        playIcon.classList.remove('spinning');
+    // Update play/pause button only if state changed
+    if (this.previousPlayerUIState.isPlaying !== currentUIState.isPlaying || 
+        this.previousPlayerUIState.isLoading !== currentUIState.isLoading) {
+      const playIcon = playPauseBtn.querySelector('.material-symbols-rounded');
+      if (playIcon) {
+        if (playerState.isLoading) {
+          playIcon.textContent = 'progress_activity';
+          playIcon.classList.add('spinning');
+        } else {
+          playIcon.textContent = playerState.isPlaying ? 'pause' : 'play_arrow';
+          playIcon.classList.remove('spinning');
+        }
       }
     }
 
     // Set up play/pause button click handler (only set once)
     if (!playPauseBtn.hasAttribute('data-handler-set')) {
-      playPauseBtn.onclick = () => {
+      playPauseBtn.addEventListener('click', () => {
         this.radioPlayer.togglePlayPause();
-      };
+      });
       playPauseBtn.setAttribute('data-handler-set', 'true');
+    }
+
+    // Set up volume control handlers (only set once)
+    const muteToggle = querySelector('#mute-toggle');
+    const volumeSlider = querySelector('#volume-slider') as HTMLInputElement;
+    
+    if (muteToggle && !muteToggle.hasAttribute('data-handler-set')) {
+      muteToggle.addEventListener('click', () => {
+        this.radioPlayer.toggleMute();
+      });
+      muteToggle.setAttribute('data-handler-set', 'true');
+    }
+    
+    if (volumeSlider && !volumeSlider.hasAttribute('data-handler-set')) {
+      volumeSlider.addEventListener('input', (event) => {
+        const target = event.target as HTMLInputElement;
+        const volume = parseInt(target.value) / 100; // Convert 0-100 to 0-1
+        this.radioPlayer.setVolume(volume);
+      });
+      volumeSlider.setAttribute('data-handler-set', 'true');
+    }
+    
+    // Update volume controls to reflect current state
+    if (muteToggle && volumeSlider) {
+      const currentState = this.radioPlayer.getState();
+      const muteIcon = muteToggle.querySelector('.material-symbols-rounded');
+      
+      // Update mute button icon
+      if (muteIcon) {
+        muteIcon.textContent = currentState.muted ? 'volume_off' : 'volume_up';
+      }
+      
+      // Update volume slider value (convert 0-1 to 0-100)
+      volumeSlider.value = Math.round(currentState.volume * 100).toString();
+    }
+
+    // Store current state for next comparison
+    this.previousPlayerUIState = { ...currentUIState };
+  }
+
+  /**
+   * Update volume controls UI elements
+   */
+  private updateVolumeControls(): void {
+    const muteToggle = querySelector('#mute-toggle');
+    const volumeSlider = querySelector('#volume-slider') as HTMLInputElement;
+    
+    if (muteToggle && volumeSlider) {
+      const currentState = this.radioPlayer.getState();
+      const muteIcon = muteToggle.querySelector('.material-symbols-rounded');
+      
+      // Update mute button icon
+      if (muteIcon) {
+        muteIcon.textContent = currentState.muted ? 'volume_off' : 'volume_up';
+      }
+      
+      // Update volume slider value (convert 0-1 to 0-100)
+      volumeSlider.value = Math.round(currentState.volume * 100).toString();
+    }
+  }
+
+  /**
+   * Build station details string
+   */
+  private buildStationDetails(station: LocalStation): string {
+    const details = [];
+    if (station.bitrate && station.bitrate > 0) {
+      details.push(`${station.bitrate}kbps`);
+    }
+    if (station.countrycode || station.country) {
+      details.push(station.countrycode || station.country);
+    }
+    return details.join(' • ');
+  }
+
+  /**
+   * Update favicon container with caching
+   */
+  private updateFaviconContainer(station: LocalStation): void {
+    const faviconContainer = querySelector('#current-favicon-container');
+    
+    if (station.favicon) {
+      // Clear any existing content
+      faviconContainer.innerHTML = '';
+      
+      // Create new img element with error handling
+      const imgElement = document.createElement('img');
+      imgElement.id = 'current-favicon';
+      imgElement.className = 'current-favicon';
+      imgElement.src = station.favicon;
+      imgElement.alt = 'Station logo';
+      
+      // Add error handler to show cached initials if favicon fails to load
+      imgElement.addEventListener('error', () => {
+        this.showCachedInitials(faviconContainer, station);
+      });
+      
+      faviconContainer.appendChild(imgElement);
+    } else {
+      // No favicon available, show cached initials
+      this.showCachedInitials(faviconContainer, station);
+    }
+  }
+
+  /**
+   * Show cached initials image or create and cache if not exists
+   */
+  private showCachedInitials(container: Element, station: LocalStation): void {
+    const stationName = station.customName || station.name;
+    const cacheKey = `${stationName}-48`;
+    
+    // Clear container
+    container.innerHTML = '';
+    
+    // Check if we have cached initials
+    if (this.faviconInitialsCache.has(cacheKey)) {
+      const cachedImg = this.faviconInitialsCache.get(cacheKey)!;
+      // Clone the cached image to avoid DOM issues
+      const clonedImg = cachedImg.cloneNode(true) as HTMLImageElement;
+      container.appendChild(clonedImg);
+    } else {
+      // Create new initials image and cache it
+      const initialsImg = createStationInitialsImage(stationName, 48);
+      this.faviconInitialsCache.set(cacheKey, initialsImg.cloneNode(true) as HTMLImageElement);
+      container.appendChild(initialsImg);
+      
+      // Limit cache size to prevent memory issues
+      if (this.faviconInitialsCache.size > 50) {
+        // Remove oldest entries
+        const firstKey = this.faviconInitialsCache.keys().next().value;
+        if (firstKey) {
+          this.faviconInitialsCache.delete(firstKey);
+        }
+      }
     }
   }
 

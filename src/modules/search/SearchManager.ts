@@ -3,7 +3,7 @@
  */
 
 import { RadioStation, SearchParams } from '@/types/station';
-import { radioBrowserApi, expandSearchTerms } from '@/services/api/radioBrowserApi';
+import { radioBrowserApi, expandSearchTerms, GENRE_MAPPING } from '@/services/api/radioBrowserApi';
 import { mcpRadioBrowserApi } from '@/services/api/mcpRadioBrowserApi';
 import { eventManager } from '@/utils/events';
 
@@ -20,7 +20,7 @@ export interface SearchFilters {
   genre?: string;
   language?: string;
   minBitrate?: number;
-  order?: 'name' | 'votes' | 'clickcount' | 'bitrate';
+  order?: 'name' | 'votes' | 'clickcount' | 'clicktrend' | 'bitrate' | 'lastcheckok' | 'country' | 'random';
   reverse?: boolean;
 }
 
@@ -76,6 +76,9 @@ export class SearchManager {
     // Stop preview when main player starts playing
     eventManager.on('station:play', this.handleMainPlayerStarted.bind(this));
     eventManager.on('station:selected', this.handleMainPlayerStarted.bind(this));
+    
+    // Handle view changes for preview transfer - DISABLED to prevent event loops
+    // eventManager.on('view:change', this.handleViewChange.bind(this));
   }
 
   /**
@@ -274,7 +277,8 @@ export class SearchManager {
       // Determine search strategy based on query and filters
       const hasTextQuery = this.currentQuery.trim().length > 0;
       const hasFilters = this.hasActiveFilters(this.currentFilters);
-      const shouldUseMcp = this.enableMcpSearch && hasTextQuery && !loadMore && this.currentOffset === 0;
+      const isSimpleGenreSearch = hasTextQuery && this.isSimpleGenreQuery(this.currentQuery);
+      const shouldUseMcp = this.enableMcpSearch && hasTextQuery && !loadMore && this.currentOffset === 0 && !isSimpleGenreSearch;
 
       if (shouldUseMcp && !hasFilters) {
         // Use MCP for natural language search when we have text query and no filters
@@ -283,6 +287,11 @@ export class SearchManager {
         
         if (result.success) {
           stations = result.data || [];
+          // Always apply sorting to MCP results to ensure user's sort preference is respected
+          if (this.currentFilters.order) {
+            stations = this.sortStations(stations, this.currentFilters.order, this.currentFilters.reverse);
+            console.log(`[SearchManager] Applied secondary sorting to MCP results: ${this.currentFilters.order}`);
+          }
         } else {
           // Fallback to regular API if MCP fails
           console.log('[SearchManager] MCP search failed, falling back to regular API');
@@ -290,7 +299,8 @@ export class SearchManager {
           stations = result.data || [];
         }
       } else {
-        // Use regular API for structured searches, filters, or pagination
+        // Use regular API for structured searches, filters, pagination, or simple genre queries
+        console.log(`[SearchManager] Using regular API search${isSimpleGenreSearch ? ' (simple genre query)' : ''}`);
         result = await this.performRegularSearch();
         stations = result.data || [];
       }
@@ -328,6 +338,32 @@ export class SearchManager {
   }
 
   /**
+   * Check if a query is a simple genre search that should use regular API instead of MCP
+   */
+  private isSimpleGenreQuery(query: string): boolean {
+    const queryLower = query.toLowerCase().trim();
+    
+    // Single word genre queries
+    if (!queryLower.includes(' ')) {
+      // Check if it's a main genre key or one of its synonyms
+      return Object.entries(GENRE_MAPPING).some(([genre, synonyms]) => {
+        return queryLower === genre || synonyms.some(synonym => 
+          synonym.toLowerCase() === queryLower
+        );
+      });
+    }
+    
+    // Multi-word queries that are clearly genre-focused
+    const genrePatterns = [
+      /^(jazz|rock|pop|classical|electronic|country|blues|reggae|metal|indie|dance|hip hop|rap)$/i,
+      /^(smooth jazz|classic rock|hard rock|heavy metal|death metal|black metal)$/i,
+      /^(house music|techno music|country music|pop music)$/i,
+    ];
+    
+    return genrePatterns.some(pattern => pattern.test(queryLower));
+  }
+
+  /**
    * Perform regular Radio Browser API search
    */
   private async performRegularSearch() {
@@ -340,15 +376,22 @@ export class SearchManager {
       ...this.currentFilters
     };
 
-    // Add name parameter only if we have a text query
+    // Add name or tag parameter based on query type
     if (this.currentQuery) {
-      const expandedTerms = expandSearchTerms(this.currentQuery);
-      const primaryTerm = expandedTerms[0];
-      searchParams.name = primaryTerm;
+      if (this.isSimpleGenreQuery(this.currentQuery)) {
+        // For simple genre queries, search by tag instead of name for better results
+        searchParams.tag = this.currentQuery.toLowerCase();
+        console.log(`[SearchManager] Using tag search for genre: ${this.currentQuery}`);
+      } else {
+        // For general text queries, search by name
+        const expandedTerms = expandSearchTerms(this.currentQuery);
+        const primaryTerm = expandedTerms[0];
+        searchParams.name = primaryTerm;
+      }
     }
 
-    // Map genre filter to tag parameter for API
-    if (this.currentFilters.genre) {
+    // Map genre filter to tag parameter for API (only if not already set by query)
+    if (this.currentFilters.genre && !searchParams.tag) {
       searchParams.tag = this.currentFilters.genre;
     }
 
@@ -486,6 +529,116 @@ export class SearchManager {
   }
 
   /**
+   * Handle view change events - transfer preview to main player if switching away from search
+   */
+  private handleViewChange(data: { from: string; to: string }): void {
+    // Only handle when switching away from search view and we have an active preview
+    if (data.from === 'search' && data.to !== 'search' && this.currentPreviewStation && this.previewAudio && !this.previewAudio.paused) {
+      this.transferPreviewToMainPlayer();
+    }
+  }
+
+  /**
+   * Transfer current preview to main player
+   */
+  private transferPreviewToMainPlayer(): void {
+    if (!this.currentPreviewStation || !this.previewAudio) {
+      return;
+    }
+
+    const stationToTransfer = { ...this.currentPreviewStation };
+    const currentTime = this.previewAudio.currentTime || 0;
+
+    try {
+      // Stop the preview cleanly
+      this.stopPreview();
+
+      // Emit event to transfer to main player
+      eventManager.emit('search:transfer-to-main', {
+        station: stationToTransfer,
+        currentTime
+      });
+
+      eventManager.emit('notification:show', {
+        type: 'info',
+        message: `Transferred "${stationToTransfer.name}" to main player`,
+        duration: 3000
+      });
+
+    } catch (error) {
+      console.error('[SearchManager] Transfer error:', error);
+      eventManager.emit('notification:show', {
+        type: 'error',
+        message: 'Failed to transfer preview to main player'
+      });
+    }
+  }
+
+  /**
+   * Get current preview state
+   */
+  getCurrentPreviewState(): { station: RadioStation | null; isPlaying: boolean } {
+    return {
+      station: this.currentPreviewStation,
+      isPlaying: this.currentPreviewStation !== null && this.previewAudio !== null && !this.previewAudio.paused
+    };
+  }
+
+  /**
+   * Sort stations array by specified criteria
+   * 
+   * TODO: Future enhancements for multi-level sorting:
+   * - Sort by primary criteria, then by secondary (e.g., "Popularity within Country")
+   * - Combined quality metrics (bitrate + codec score)
+   * - Reliability scoring (uptime + successful checks)
+   * - User preference learning (boost stations user previously liked)
+   */
+  private sortStations(stations: RadioStation[], order: string, reverse = true): RadioStation[] {
+    const sortedStations = [...stations];
+    
+    sortedStations.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (order) {
+        case 'name':
+          comparison = (a.name || '').localeCompare(b.name || '');
+          break;
+        case 'votes':
+          comparison = (a.votes || 0) - (b.votes || 0);
+          break;
+        case 'clickcount':
+          comparison = (a.clickcount || 0) - (b.clickcount || 0);
+          break;
+        case 'clicktrend':
+          comparison = (a.clicktrend || 0) - (b.clicktrend || 0);
+          break;
+        case 'bitrate':
+          comparison = (a.bitrate || 0) - (b.bitrate || 0);
+          break;
+        case 'lastcheckok':
+          // Convert lastcheckoktime to timestamp for comparison
+          const aTime = a.lastcheckoktime_iso8601 ? new Date(a.lastcheckoktime_iso8601).getTime() : 0;
+          const bTime = b.lastcheckoktime_iso8601 ? new Date(b.lastcheckoktime_iso8601).getTime() : 0;
+          comparison = aTime - bTime;
+          break;
+        case 'country':
+          comparison = (a.country || '').localeCompare(b.country || '');
+          break;
+        case 'random':
+          comparison = Math.random() - 0.5;
+          break;
+        default:
+          comparison = 0; // No sorting for unknown order
+          break;
+      }
+      
+      return reverse ? -comparison : comparison;
+    });
+    
+    return sortedStations;
+  }
+
+  /**
    * Clean up resources
    */
   destroy(): void {
@@ -509,5 +662,6 @@ export class SearchManager {
     eventManager.off('search:stop-preview', this.handleStopPreview.bind(this));
     eventManager.off('station:play', this.handleMainPlayerStarted.bind(this));
     eventManager.off('station:selected', this.handleMainPlayerStarted.bind(this));
+    // eventManager.off('view:change', this.handleViewChange.bind(this)); // Disabled to prevent loops
   }
 }
