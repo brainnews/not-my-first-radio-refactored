@@ -418,15 +418,6 @@ export class SearchManager {
         totalCount: stations.length
       });
 
-      // Show summary notification about filtered stations
-      const filteredCount = validationResult.invalidStations.length;
-      if (filteredCount > 0) {
-        eventManager.emit('notification:show', {
-          type: 'info',
-          message: `Validation complete: ${filteredCount} station${filteredCount > 1 ? 's' : ''} have invalid streams`,
-          duration: 4000
-        });
-      }
 
     } catch (error) {
       console.error('[SearchManager] Background validation error:', error);

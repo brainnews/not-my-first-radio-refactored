@@ -681,7 +681,7 @@ export class SearchView {
   }): void {
     this.isValidating = true;
     this.hideLoading(); // Hide the search loading indicator
-    this.showValidation(data.total);
+    //this.showValidation(data.total);
     
     if (data.loadMore && data.stationsToValidate) {
       // For load more, only mark the new stations as validating
@@ -763,6 +763,8 @@ export class SearchView {
     if (!stationCard) return;
 
     const validationIndicator = stationCard.querySelector('.station-validation-indicator') as HTMLElement;
+    const previewButton = stationCard.querySelector('.preview-button') as HTMLElement;
+    const addButton = stationCard.querySelector('.add-button') as HTMLElement;
     if (!validationIndicator) return;
 
     // Remove all status classes
@@ -776,36 +778,34 @@ export class SearchView {
       case StationValidationStatus.VALIDATING:
         validationIndicator.innerHTML = '<div class="validation-spinner"></div>';
         validationIndicator.title = 'Validating stream...';
+        // Keep both buttons visible during validation
+        if (previewButton) previewButton.classList.remove('hidden');
+        if (addButton) addButton.classList.remove('hidden');
         break;
       case StationValidationStatus.VALID:
-        validationIndicator.innerHTML = '<span class="material-symbols-rounded">check_circle</span>';
-        validationIndicator.title = 'Stream verified';
+        validationIndicator.innerHTML = '';
+        validationIndicator.title = '';
+        // Show both buttons for valid streams
+        if (previewButton) previewButton.classList.remove('hidden');
+        if (addButton) addButton.classList.remove('hidden');
         break;
       case StationValidationStatus.INVALID:
-        validationIndicator.innerHTML = '<span class="material-symbols-rounded">error</span>';
+        validationIndicator.innerHTML = '<span class="station-not-supported">Station not supported</span>';
         validationIndicator.title = errorMessage || 'Stream unavailable';
+        // Hide both buttons for invalid streams
+        if (previewButton) previewButton.classList.add('hidden');
+        if (addButton) addButton.classList.add('hidden');
         break;
       default:
         validationIndicator.innerHTML = '<div class="validation-unknown"></div>';
         validationIndicator.title = 'Stream not yet validated';
+        // Keep both buttons visible for unknown status
+        if (previewButton) previewButton.classList.remove('hidden');
+        if (addButton) addButton.classList.remove('hidden');
         break;
     }
   }
 
-  /**
-   * Show validation indicator
-   */
-  private showValidation(total: number): void {
-    this.validationIndicator.classList.remove('hidden');
-    this.emptyState.classList.add('hidden');
-    
-    // Initialize progress display
-    const progressText = querySelector('.validation-progress-text', this.validationIndicator) as HTMLElement;
-    progressText.textContent = `0 of ${total} stations verified`;
-    
-    const progressFill = querySelector('.validation-progress-fill', this.validationIndicator) as HTMLElement;
-    progressFill.style.width = '0%';
-  }
 
   /**
    * Hide validation indicator
@@ -1003,7 +1003,7 @@ export class SearchView {
         break;
       case StationValidationStatus.INVALID:
         validationIndicatorContent = '<span class="material-symbols-rounded">error</span>';
-        validationTitle = 'Stream unavailable';
+        validationTitle = 'There was an error connecting to this station.';
         break;
       default:
         // UNKNOWN - use defaults above
@@ -1016,9 +1016,6 @@ export class SearchView {
         <div class="station-details">
           <h3 class="station-name">
             ${station.name}
-            <div class="station-validation-indicator ${validationStatus}" title="${validationTitle}">
-              ${validationIndicatorContent}
-            </div>
           </h3>
           <div class="station-metadata">
             ${country}
@@ -1029,10 +1026,12 @@ export class SearchView {
         </div>
       </div>
       <div class="station-actions">
-        <button type="button" class="preview-button" data-action="preview" title="Preview station">
+          <div class="station-validation-indicator ${validationStatus}" title="${validationTitle}">${validationIndicatorContent}
+          </div>
+        <button type="button" class="preview-button ${validationStatus === StationValidationStatus.INVALID ? 'hidden' : ''}" data-action="preview" title="Preview station">
           <span class="material-symbols-rounded">play_arrow</span>
         </button>
-        <button type="button" class="${addButtonClass}" data-action="add" title="${addButtonTitle}">
+        <button type="button" class="${addButtonClass} ${validationStatus === StationValidationStatus.INVALID ? 'hidden' : ''}" data-action="add" title="${addButtonTitle}">
           <span class="material-symbols-rounded">${addButtonIcon}</span>
         </button>
       </div>

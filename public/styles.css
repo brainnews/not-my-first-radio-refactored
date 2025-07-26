@@ -489,8 +489,20 @@ main {
     flex-direction: column;
 }
 
-
-
+.station-validation-indicator {
+    display: flex;
+    align-items: center;
+}
+.station-not-supported {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    background-color: var(--accent-color-10);
+    padding: 2px 8px;
+    border-radius: 10px;
+    @media screen and (max-width: 768px) {
+        font-size: 0.5rem;
+    }
+}
 .station-card {
     cursor: pointer;
     position: relative;
