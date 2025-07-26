@@ -39,7 +39,6 @@ export class RadioPlayer {
     // Initialize audio element
     this.audio = new Audio();
     this.audio.preload = 'none';
-    this.audio.crossOrigin = 'anonymous';
     
     // Initialize state
     this.playerState = {

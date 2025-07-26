@@ -990,6 +990,9 @@ main {
     text-overflow: ellipsis;
     max-width: 800px;
     font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
     @media (max-width: 768px) {
         font-size: 0.9625rem;
     }

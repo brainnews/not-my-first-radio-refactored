@@ -9,6 +9,7 @@ import { eventManager } from '@/utils/events';
 import { getCountryIcon, getBitrateIcon, getVotesIcon } from '@/utils/icons';
 import { PlaceholderManager } from '@/utils/placeholderManager';
 import { getStorageItem, setStorageItem, StorageKeys } from '@/utils/storage';
+import { ValidationProgress, StationValidationState, StationValidationStatus } from '@/types/validation';
 
 interface StarterPack {
   filename: string;
@@ -48,6 +49,12 @@ export class SearchView {
   private previewingStation: RadioStation | null = null;
   private loadingPreviewStation: RadioStation | null = null;
   private libraryStations: Set<string> = new Set(); // Track station UUIDs in library
+  
+  // Validation state
+  private isValidating = false;
+  private validationProgress: ValidationProgress | null = null;
+  private validationIndicator!: HTMLElement;
+  private stationValidationStates: Map<string, StationValidationStatus> = new Map();
 
   constructor(config: SearchViewConfig = {}) {
     this.container = config.container || this.createContainer();
@@ -141,6 +148,19 @@ export class SearchView {
           <span>Searching stations...</span>
         </div>
 
+        <div id="validation-indicator" class="validation-indicator hidden">
+          <div class="spinner"></div>
+          <div class="validation-content">
+            <span class="validation-text">Validating streams...</span>
+            <div class="validation-progress">
+              <div class="validation-progress-bar">
+                <div class="validation-progress-fill"></div>
+              </div>
+              <div class="validation-progress-text">0 of 0 stations verified</div>
+            </div>
+          </div>
+        </div>
+
         <div id="empty-state" class="empty-state">
           <div class="empty-state-content">
             <p>Start typing to search, or explore these curated station collections</p>
@@ -181,6 +201,7 @@ export class SearchView {
     this.searchInput = querySelector('#search-input', this.container) as HTMLInputElement;
     this.resultsContainer = querySelector('#search-results', this.container);
     this.loadingIndicator = querySelector('#loading-indicator', this.container);
+    this.validationIndicator = querySelector('#validation-indicator', this.container);
     this.emptyState = querySelector('#empty-state', this.container);
     this.loadMoreButton = querySelector('#load-more', this.container) as HTMLButtonElement;
 
@@ -251,6 +272,15 @@ export class SearchView {
     eventManager.on('search:error', this.handleSearchError.bind(this));
     eventManager.on('search:cleared', this.handleSearchCleared.bind(this));
     eventManager.on('search:preview-state', this.handlePreviewState.bind(this));
+
+    // Validation events
+    eventManager.on('search:validating', this.handleValidationStarted.bind(this));
+    eventManager.on('search:validation-progress', this.handleValidationProgress.bind(this));
+    eventManager.on('search:validation-complete', this.handleValidationComplete.bind(this));
+    eventManager.on('search:validation-cancelled', this.handleValidationCancelled.bind(this));
+    eventManager.on('search:station-validated', this.handleStationValidated.bind(this));
+    eventManager.on('search:station-validation-failed', this.handleStationValidationFailed.bind(this));
+    eventManager.on('search:immediate-results', this.handleImmediateResults.bind(this));
 
     // Player events
     eventManager.on('player:state-changed', this.handlePlayerStateChanged.bind(this));
@@ -538,8 +568,12 @@ export class SearchView {
   /**
    * Handle search started event
    */
-  private handleSearchStarted(): void {
+  private handleSearchStarted(data?: { query: string; filters: any; isLoadMore?: boolean }): void {
     this.showLoading();
+    // Only clear validation states for new searches, not load more operations
+    if (!data?.isLoadMore) {
+      this.stationValidationStates.clear();
+    }
   }
 
   /**
@@ -557,7 +591,7 @@ export class SearchView {
   private handleMoreLoaded(result: SearchResult): void {
     this.currentResults.push(...result.stations);
     this.hasMore = result.hasMore;
-    this.renderResults();
+    this.renderMoreResults(result.stations);
   }
 
   /**
@@ -636,10 +670,172 @@ export class SearchView {
   }
 
   /**
+   * Handle validation started
+   */
+  private handleValidationStarted(data: { 
+    total: number; 
+    query: string; 
+    filters: any; 
+    loadMore?: boolean; 
+    stationsToValidate?: string[] 
+  }): void {
+    this.isValidating = true;
+    this.hideLoading(); // Hide the search loading indicator
+    this.showValidation(data.total);
+    
+    if (data.loadMore && data.stationsToValidate) {
+      // For load more, only mark the new stations as validating
+      data.stationsToValidate.forEach(stationUuid => {
+        this.stationValidationStates.set(stationUuid, StationValidationStatus.VALIDATING);
+        this.updateStationValidationIndicator(stationUuid, StationValidationStatus.VALIDATING);
+      });
+    } else {
+      // For initial search, mark all current stations as validating
+      this.currentResults.forEach(station => {
+        this.stationValidationStates.set(station.stationuuid, StationValidationStatus.VALIDATING);
+        this.updateStationValidationIndicator(station.stationuuid, StationValidationStatus.VALIDATING);
+      });
+    }
+  }
+
+  /**
+   * Handle validation progress updates
+   */
+  private handleValidationProgress(progress: ValidationProgress): void {
+    this.validationProgress = progress;
+    this.updateValidationProgress();
+  }
+
+  /**
+   * Handle validation complete
+   */
+  private handleValidationComplete(data: { validatedCount: number; invalidCount: number; totalCount: number }): void {
+    this.isValidating = false;
+    this.hideValidation();
+    
+    // Show completion message if enabled (optional)
+    console.log(`[SearchView] Validation complete: ${data.validatedCount}/${data.totalCount} stations valid`);
+  }
+
+  /**
+   * Handle validation cancelled
+   */
+  private handleValidationCancelled(data: { error: string }): void {
+    this.isValidating = false;
+    this.hideValidation();
+    console.warn(`[SearchView] Validation cancelled: ${data.error}`);
+  }
+
+  /**
+   * Handle immediate results (shown before validation)
+   */
+  private handleImmediateResults(result: SearchResult): void {
+    // Initialize all stations as unknown validation status (only if not already set)
+    result.stations.forEach(station => {
+      if (!this.stationValidationStates.has(station.stationuuid)) {
+        this.stationValidationStates.set(station.stationuuid, StationValidationStatus.UNKNOWN);
+      }
+    });
+    // Results are already handled by handleSearchCompleted or handleMoreLoaded
+  }
+
+  /**
+   * Handle individual station validation success
+   */
+  private handleStationValidated(state: StationValidationState): void {
+    this.stationValidationStates.set(state.stationUuid, StationValidationStatus.VALID);
+    this.updateStationValidationIndicator(state.stationUuid, StationValidationStatus.VALID);
+  }
+
+  /**
+   * Handle individual station validation failure
+   */
+  private handleStationValidationFailed(state: StationValidationState): void {
+    this.stationValidationStates.set(state.stationUuid, StationValidationStatus.INVALID);
+    this.updateStationValidationIndicator(state.stationUuid, StationValidationStatus.INVALID, state.error?.message);
+  }
+
+  /**
+   * Update validation indicator for a specific station
+   */
+  private updateStationValidationIndicator(stationUuid: string, status: StationValidationStatus, errorMessage?: string): void {
+    const stationCard = this.container.querySelector(`[data-station-id="${stationUuid}"]`);
+    if (!stationCard) return;
+
+    const validationIndicator = stationCard.querySelector('.station-validation-indicator') as HTMLElement;
+    if (!validationIndicator) return;
+
+    // Remove all status classes
+    validationIndicator.classList.remove('validating', 'valid', 'invalid', 'unknown');
+    
+    // Add current status class
+    validationIndicator.classList.add(status);
+    
+    // Update indicator content and title
+    switch (status) {
+      case StationValidationStatus.VALIDATING:
+        validationIndicator.innerHTML = '<div class="validation-spinner"></div>';
+        validationIndicator.title = 'Validating stream...';
+        break;
+      case StationValidationStatus.VALID:
+        validationIndicator.innerHTML = '<span class="material-symbols-rounded">check_circle</span>';
+        validationIndicator.title = 'Stream verified';
+        break;
+      case StationValidationStatus.INVALID:
+        validationIndicator.innerHTML = '<span class="material-symbols-rounded">error</span>';
+        validationIndicator.title = errorMessage || 'Stream unavailable';
+        break;
+      default:
+        validationIndicator.innerHTML = '<div class="validation-unknown"></div>';
+        validationIndicator.title = 'Stream not yet validated';
+        break;
+    }
+  }
+
+  /**
+   * Show validation indicator
+   */
+  private showValidation(total: number): void {
+    this.validationIndicator.classList.remove('hidden');
+    this.emptyState.classList.add('hidden');
+    
+    // Initialize progress display
+    const progressText = querySelector('.validation-progress-text', this.validationIndicator) as HTMLElement;
+    progressText.textContent = `0 of ${total} stations verified`;
+    
+    const progressFill = querySelector('.validation-progress-fill', this.validationIndicator) as HTMLElement;
+    progressFill.style.width = '0%';
+  }
+
+  /**
+   * Hide validation indicator
+   */
+  private hideValidation(): void {
+    this.validationIndicator.classList.add('hidden');
+  }
+
+  /**
+   * Update validation progress display
+   */
+  private updateValidationProgress(): void {
+    if (!this.validationProgress || !this.isValidating) {
+      return;
+    }
+
+    const progress = this.validationProgress;
+    const progressText = querySelector('.validation-progress-text', this.validationIndicator) as HTMLElement;
+    const progressFill = querySelector('.validation-progress-fill', this.validationIndicator) as HTMLElement;
+    
+    progressText.textContent = `${progress.validated} of ${progress.total} stations verified`;
+    progressFill.style.width = `${progress.percentComplete}%`;
+  }
+
+  /**
    * Show loading indicator
    */
   private showLoading(): void {
     this.loadingIndicator.classList.remove('hidden');
+    this.validationIndicator.classList.add('hidden');
     this.emptyState.classList.add('hidden');
     this.resultsContainer.classList.add('hidden');
   }
@@ -730,6 +926,41 @@ export class SearchView {
   }
 
   /**
+   * Render additional search results (for load more functionality)
+   */
+  private renderMoreResults(newStations: RadioStation[]): void {
+    // Update results count with smart messaging
+    const resultsHeader = querySelector('.results-header', this.container);
+    const resultsCount = querySelector('#results-count', this.container);
+    
+    resultsCount.textContent = this.generateSearchResultMessage();
+    resultsHeader.classList.remove('hidden');
+
+    // Append new stations to existing list
+    const stationsList = querySelector('#stations-list', this.container);
+    
+    newStations.forEach(station => {
+      // Initialize validation state for new stations
+      if (!this.stationValidationStates.has(station.stationuuid)) {
+        this.stationValidationStates.set(station.stationuuid, StationValidationStatus.UNKNOWN);
+      }
+      
+      const stationCard = this.createStationCard(station);
+      stationsList.appendChild(stationCard);
+    });
+
+    // Update library states for newly added cards only
+    this.updateStationLibraryStatesForStations(newStations);
+
+    // Show/hide load more button
+    if (this.hasMore) {
+      this.loadMoreButton.classList.remove('hidden');
+    } else {
+      this.loadMoreButton.classList.add('hidden');
+    }
+  }
+
+  /**
    * Create a station card element
    */
   private createStationCard(station: RadioStation): HTMLElement {
@@ -754,11 +985,41 @@ export class SearchView {
     const addButtonTitle = isInLibrary ? 'Remove from library' : 'Add to library';
     const addButtonClass = isInLibrary ? 'add-button added' : 'add-button';
 
+    // Get validation status for this station
+    const validationStatus = this.stationValidationStates.get(station.stationuuid) || StationValidationStatus.UNKNOWN;
+    
+    // Generate the appropriate validation indicator content
+    let validationIndicatorContent = '<div class="validation-unknown"></div>';
+    let validationTitle = 'Stream not yet validated';
+    
+    switch (validationStatus) {
+      case StationValidationStatus.VALIDATING:
+        validationIndicatorContent = '<div class="validation-spinner"></div>';
+        validationTitle = 'Validating stream...';
+        break;
+      case StationValidationStatus.VALID:
+        validationIndicatorContent = '<span class="material-symbols-rounded">check_circle</span>';
+        validationTitle = 'Stream verified';
+        break;
+      case StationValidationStatus.INVALID:
+        validationIndicatorContent = '<span class="material-symbols-rounded">error</span>';
+        validationTitle = 'Stream unavailable';
+        break;
+      default:
+        // UNKNOWN - use defaults above
+        break;
+    }
+    
     card.innerHTML = `
       <div class="station-info">
         ${favicon}
         <div class="station-details">
-          <h3 class="station-name">${station.name}</h3>
+          <h3 class="station-name">
+            ${station.name}
+            <div class="station-validation-indicator ${validationStatus}" title="${validationTitle}">
+              ${validationIndicatorContent}
+            </div>
+          </h3>
           <div class="station-metadata">
             ${country}
             ${bitrate}
@@ -882,6 +1143,29 @@ export class SearchView {
       const addButtonIcon = addButton.querySelector('.material-symbols-rounded') as HTMLElement;
       
       if (stationId && this.libraryStations.has(stationId)) {
+        addButton.classList.add('added');
+        addButton.title = 'Remove from library';
+        addButtonIcon.textContent = 'check';
+      } else {
+        addButton.classList.remove('added');
+        addButton.title = 'Add to library';
+        addButtonIcon.textContent = 'playlist_add';
+      }
+    });
+  }
+
+  /**
+   * Update station library states for specific stations only
+   */
+  private updateStationLibraryStatesForStations(stations: RadioStation[]): void {
+    stations.forEach(station => {
+      const stationCard = this.container.querySelector(`[data-station-id="${station.stationuuid}"]`);
+      if (!stationCard) return;
+
+      const addButton = stationCard.querySelector('.add-button') as HTMLButtonElement;
+      const addButtonIcon = addButton.querySelector('.material-symbols-rounded') as HTMLElement;
+      
+      if (this.libraryStations.has(station.stationuuid)) {
         addButton.classList.add('added');
         addButton.title = 'Remove from library';
         addButtonIcon.textContent = 'check';

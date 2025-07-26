@@ -6,6 +6,8 @@ import { RadioStation, SearchParams } from '@/types/station';
 import { radioBrowserApi, expandSearchTerms, GENRE_MAPPING } from '@/services/api/radioBrowserApi';
 import { mcpRadioBrowserApi } from '@/services/api/mcpRadioBrowserApi';
 import { eventManager } from '@/utils/events';
+import { streamValidator } from '@/services/validation/streamValidator';
+import { ValidationProgress, StationValidationState, StationValidationStatus } from '@/types/validation';
 
 export interface SearchResult {
   stations: RadioStation[];
@@ -29,6 +31,7 @@ export interface SearchManagerConfig {
   pageSize?: number;
   maxResults?: number;
   enableMcpSearch?: boolean;
+  enableValidation?: boolean;
 }
 
 /**
@@ -49,12 +52,14 @@ export class SearchManager {
   private readonly pageSize: number;
   private readonly maxResults: number;
   private readonly enableMcpSearch: boolean;
+  private readonly enableValidation: boolean;
 
   constructor(config: SearchManagerConfig = {}) {
     this.debounceMs = config.debounceMs ?? 500;
     this.pageSize = config.pageSize ?? 20;
     this.maxResults = config.maxResults ?? 200;
     this.enableMcpSearch = config.enableMcpSearch ?? true;
+    this.enableValidation = config.enableValidation ?? true;
 
     this.setupEventListeners();
     this.createPreviewAudio();
@@ -132,13 +137,20 @@ export class SearchManager {
       clearTimeout(this.searchTimeout);
     }
 
+    // Cancel any ongoing validation
+    streamValidator.cancelValidation();
+
     // Store search parameters
     this.currentQuery = query.trim();
     this.currentFilters = { ...filters };
     this.currentOffset = 0;
 
     // Emit search started event immediately for UI feedback
-    eventManager.emit('search:started', { query: this.currentQuery, filters: this.currentFilters });
+    eventManager.emit('search:started', { 
+      query: this.currentQuery, 
+      filters: this.currentFilters,
+      isLoadMore: this.currentOffset > 0 // Indicate if this is a load more operation
+    });
 
     // Check if we have any search criteria (either query text or filters)
     const hasSearchCriteria = this.currentQuery || this.hasActiveFilters(this.currentFilters);
@@ -309,17 +321,23 @@ export class SearchManager {
         throw new Error(result.error || 'Search failed');
       }
 
-      const hasMore = stations.length === this.pageSize && this.currentOffset + stations.length < this.maxResults;
+      // Validate streams if validation is enabled and we have stations
+      if (this.enableValidation && stations.length > 0) {
+        await this.validateAndEmitResults(stations, loadMore);
+      } else {
+        // No validation - emit results immediately
+        const hasMore = stations.length === this.pageSize && this.currentOffset + stations.length < this.maxResults;
 
-      const searchResult: SearchResult = {
-        stations,
-        total: stations.length + this.currentOffset,
-        hasMore,
-        query: this.currentQuery,
-        filters: this.currentFilters
-      };
+        const searchResult: SearchResult = {
+          stations,
+          total: stations.length + this.currentOffset,
+          hasMore,
+          query: this.currentQuery,
+          filters: this.currentFilters
+        };
 
-      eventManager.emit(loadMore ? 'search:more-loaded' : 'search:completed', searchResult);
+        eventManager.emit(loadMore ? 'search:more-loaded' : 'search:completed', searchResult);
+      }
 
     } catch (error) {
       console.error('[SearchManager] Search error:', error);
@@ -334,6 +352,95 @@ export class SearchManager {
       });
     } finally {
       this.isSearching = false;
+    }
+  }
+
+  /**
+   * Show immediate results and validate stations in background
+   */
+  private async validateAndEmitResults(stations: RadioStation[], loadMore: boolean): Promise<void> {
+    // PHASE 1: Show immediate results without validation
+    const hasMore = stations.length === this.pageSize && 
+                   this.currentOffset + stations.length < this.maxResults;
+
+    const immediateResult: SearchResult = {
+      stations,
+      total: stations.length + this.currentOffset,
+      hasMore,
+      query: this.currentQuery,
+      filters: this.currentFilters
+    };
+
+    // Emit immediate results - users see these instantly
+    eventManager.emit('search:immediate-results', immediateResult);
+    eventManager.emit(loadMore ? 'search:more-loaded' : 'search:completed', immediateResult);
+
+    // PHASE 2: Start background validation
+    this.validateStationsInBackground(stations, loadMore);
+  }
+
+  /**
+   * Validate stations in background and emit individual station updates
+   */
+  private async validateStationsInBackground(stations: RadioStation[], loadMore = false): Promise<void> {
+    // Emit validation started event
+    eventManager.emit('search:validating', {
+      total: stations.length,
+      query: this.currentQuery,
+      filters: this.currentFilters,
+      loadMore: loadMore, // Tell the UI this is a load more operation
+      stationsToValidate: stations.map(s => s.stationuuid) // Only these stations should be marked as validating
+    });
+
+    try {
+      // Use streaming validation to get individual station results
+      const validationResult = await streamValidator.validateStationsStreaming(
+        stations,
+        (stationState: StationValidationState) => {
+          // Emit individual station validation updates
+          if (stationState.status === StationValidationStatus.VALID) {
+            eventManager.emit('search:station-validated', stationState);
+          } else if (stationState.status === StationValidationStatus.INVALID) {
+            eventManager.emit('search:station-validation-failed', stationState);
+          }
+          // Note: VALIDATING status is handled internally by the UI
+        },
+        (progress: ValidationProgress) => {
+          // Emit progress updates
+          eventManager.emit('search:validation-progress', progress);
+        }
+      );
+
+      // Emit validation complete event
+      eventManager.emit('search:validation-complete', {
+        validatedCount: validationResult.validStations.length,
+        invalidCount: validationResult.invalidStations.length,
+        totalCount: stations.length
+      });
+
+      // Show summary notification about filtered stations
+      const filteredCount = validationResult.invalidStations.length;
+      if (filteredCount > 0) {
+        eventManager.emit('notification:show', {
+          type: 'info',
+          message: `Validation complete: ${filteredCount} station${filteredCount > 1 ? 's' : ''} have invalid streams`,
+          duration: 4000
+        });
+      }
+
+    } catch (error) {
+      console.error('[SearchManager] Background validation error:', error);
+      
+      // Emit validation cancelled event
+      eventManager.emit('search:validation-cancelled', {
+        error: error instanceof Error ? error.message : 'Validation failed'
+      });
+
+      eventManager.emit('notification:show', {
+        type: 'warning',
+        message: 'Stream validation failed. Results may include invalid stations.',
+        duration: 3000
+      });
     }
   }
 
@@ -645,6 +752,9 @@ export class SearchManager {
     if (this.searchTimeout) {
       clearTimeout(this.searchTimeout);
     }
+
+    // Cancel any ongoing validation
+    streamValidator.cancelValidation();
 
     this.stopPreview();
 

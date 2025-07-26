@@ -187,6 +187,13 @@ export type AppEventType =
   | 'search:countries-response'
   | 'search:get-genres'
   | 'search:genres-response'
+  | 'search:validating'
+  | 'search:validation-progress'
+  | 'search:validation-complete'
+  | 'search:validation-cancelled'
+  | 'search:station-validated'
+  | 'search:station-validation-failed'
+  | 'search:immediate-results'
   | 'batch:flush';
 
 /**
