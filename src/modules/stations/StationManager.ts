@@ -85,6 +85,8 @@ export class StationManager {
   private debouncedFilter: (query: string) => void;
   private debouncedFilterInContainer: (container: HTMLElement) => void;
   private delegationContext: string | null = null;
+  private shuffleHistory: string[] = []; // Track last 5 shuffled station UUIDs
+  private lastShuffleTime: number = 0;
 
   constructor(config: StationManagerConfig = {}) {
     this.container = config.container || querySelector('#stations');
@@ -287,6 +289,10 @@ export class StationManager {
       this.updateStationListeningTime(data.station, data.totalTime);
     });
 
+    eventManager.on('station:shuffle', () => {
+      this.handleShuffleRequest();
+    });
+
   }
 
 
@@ -446,6 +452,107 @@ export class StationManager {
     return [...this.stations];
   }
 
+  /**
+   * Handle shuffle request with intelligent station selection
+   */
+  private handleShuffleRequest(): void {
+    // Check if we have enough stations to shuffle
+    if (this.stations.length < 2) {
+      eventManager.emit('notification:show', {
+        type: 'warning',
+        message: 'Add more stations to enable shuffle',
+        duration: 3000
+      });
+      return;
+    }
+
+    // Check minimum time between shuffles (10 seconds)
+    const now = Date.now();
+    if (now - this.lastShuffleTime < 10000) {
+      eventManager.emit('notification:show', {
+        type: 'info',
+        message: 'Please wait before shuffling again',
+        duration: 2000
+      });
+      return;
+    }
+
+    const selectedStation = this.selectShuffleStation();
+    if (!selectedStation) {
+      eventManager.emit('notification:show', {
+        type: 'error',
+        message: 'Unable to find station to shuffle to',
+        duration: 3000
+      });
+      return;
+    }
+
+    this.lastShuffleTime = now;
+    
+    // Add to shuffle history
+    this.shuffleHistory.push(selectedStation.stationuuid);
+    if (this.shuffleHistory.length > 5) {
+      this.shuffleHistory.shift(); // Keep only last 5
+    }
+
+    // Store previous station for potential undo
+    const previousStation = this.currentPlayingStation;
+    
+    // Emit station play event to switch
+    eventManager.emit('station:play-request', selectedStation);
+    
+    // Show success notification with undo option
+    eventManager.emit('notification:show', {
+      type: 'success',
+      message: `Shuffled to ${selectedStation.name}`,
+      duration: 5000,
+      action: previousStation ? {
+        label: 'Undo',
+        callback: () => {
+          if (previousStation) {
+            eventManager.emit('station:play-request', previousStation);
+          }
+        }
+      } : undefined
+    });
+  }
+
+  /**
+   * Select a station for shuffle using intelligent logic
+   */
+  private selectShuffleStation(): LocalStation | null {
+    if (this.stations.length === 0) return null;
+
+    // Get available stations (exclude current playing station)
+    let availableStations = this.stations.filter(station => {
+      return this.currentPlayingStation?.stationuuid !== station.stationuuid;
+    });
+
+    if (availableStations.length === 0) return null;
+
+    // Exclude recently shuffled stations to prevent immediate repeats
+    const nonRecentStations = availableStations.filter(station => {
+      return !this.shuffleHistory.includes(station.stationuuid);
+    });
+
+    // Use non-recent stations if available, otherwise use all available
+    const candidateStations = nonRecentStations.length > 0 ? nonRecentStations : availableStations;
+
+    // Separate favorites from regular stations
+    const favoriteStations = candidateStations.filter(s => s.isFavorite);
+    const regularStations = candidateStations.filter(s => !s.isFavorite);
+
+    // 70% chance to select from favorites if they exist
+    const shouldSelectFavorite = favoriteStations.length > 0 && Math.random() < 0.7;
+    const stationsToChooseFrom = shouldSelectFavorite ? favoriteStations : regularStations;
+
+    // If the chosen category is empty, fall back to the other category
+    const finalStations = stationsToChooseFrom.length > 0 ? stationsToChooseFrom : candidateStations;
+
+    // Randomly select from the final pool
+    const randomIndex = Math.floor(Math.random() * finalStations.length);
+    return finalStations[randomIndex];
+  }
 
   /**
    * Get preset stations (1-6)

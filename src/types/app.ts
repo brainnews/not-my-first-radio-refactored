@@ -95,6 +95,7 @@ export type AppEventType =
   | 'station:updated'
   | 'station:note-updated'
   | 'station:share'
+  | 'station:shuffle'
   | 'user:login'
   | 'user:logout'
   | 'user:loaded'

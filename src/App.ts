@@ -1633,6 +1633,12 @@ export class App {
             this.showHelp();
           }
           break;
+        case 'KeyS':
+          if ((event.ctrlKey || event.metaKey) && event.shiftKey) {
+            event.preventDefault();
+            eventManager.emit('station:shuffle');
+          }
+          break;
       }
     });
   }
@@ -1813,6 +1819,50 @@ export class App {
         this.radioPlayer.togglePlayPause();
       });
       playPauseBtn.setAttribute('data-handler-set', 'true');
+    }
+
+    // Set up shuffle button
+    const shuffleBtn = querySelector('#shuffle-station') as HTMLButtonElement;
+    if (shuffleBtn && !shuffleBtn.hasAttribute('data-handler-set')) {
+      shuffleBtn.addEventListener('click', () => {
+        // Show loading state
+        const shuffleIcon = shuffleBtn.querySelector('.material-symbols-rounded');
+        if (shuffleIcon) {
+          shuffleIcon.textContent = 'progress_activity';
+          shuffleIcon.classList.add('spinning');
+        }
+        shuffleBtn.disabled = true;
+        
+        eventManager.emit('station:shuffle');
+        
+        // Reset loading state after a short delay
+        setTimeout(() => {
+          if (shuffleIcon) {
+            shuffleIcon.textContent = 'shuffle';
+            shuffleIcon.classList.remove('spinning');
+          }
+          // Re-enable based on station count
+          const stations = this.stationManager.getStations();
+          shuffleBtn.disabled = stations.length < 2;
+        }, 1000);
+      });
+      shuffleBtn.setAttribute('data-handler-set', 'true');
+    }
+    
+    // Update shuffle button state based on station count
+    if (shuffleBtn) {
+      const stations = this.stationManager.getStations();
+      const shouldDisable = stations.length < 2;
+      
+      shuffleBtn.disabled = shouldDisable;
+      shuffleBtn.title = shouldDisable ? 
+        'Add more stations to enable shuffle' : 
+        'Shuffle to random station';
+        
+      // Add ARIA label for accessibility
+      shuffleBtn.setAttribute('aria-label', shouldDisable ? 
+        'Shuffle disabled: Add more stations to enable shuffle' : 
+        'Shuffle to random station');
     }
 
     // Set up volume control handlers (only set once)
@@ -2042,6 +2092,7 @@ export class App {
       <h3>Keyboard Shortcuts</h3>
       <ul>
         <li><kbd>Space</kbd> - Play/Pause</li>
+        <li><kbd>Ctrl/Cmd + Shift + S</kbd> - Shuffle to random station</li>
         <li><kbd>Ctrl/Cmd + H</kbd> - Show help</li>
         <li><kbd>Ctrl/Cmd + ↑/↓</kbd> - Volume control</li>
         <li><kbd>Ctrl/Cmd + M</kbd> - Mute/unmute</li>
