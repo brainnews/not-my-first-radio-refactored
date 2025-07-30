@@ -1257,10 +1257,19 @@ export class SearchView {
       // Use the stations import event to batch add all stations with merge mode
       eventManager.emit('stations:import-merge', localStations);
 
-      // Show success notification
+      // Switch library sorting to show newest stations first
+      eventManager.emit('library:sort-change', 'date-added-newest');
+
+      // Show enhanced success notification with action button
       eventManager.emit('notification:show', {
         type: 'success',
-        message: `Starter pack added successfully! ${localStations.length} stations imported.`,
+        message: `Starter pack added! ${localStations.length} stations imported.`,
+        action: {
+          label: 'View in Library',
+          callback: () => {
+            eventManager.emit('view:library');
+          }
+        }
       });
 
       // Track achievement for adding starter pack

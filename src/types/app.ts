@@ -155,6 +155,7 @@ export type AppEventType =
   | 'library:render-presets'
   | 'library:get-stations'
   | 'library:stations-response'
+  | 'library:sort-change'
   | 'stations:share'
   | 'stations:share-url'
   | 'stations:share-qr'

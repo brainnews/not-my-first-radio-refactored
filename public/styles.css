@@ -639,6 +639,20 @@ main {
     gap: 0.5rem;
 }
 
+/* NEW badge for unplayed stations */
+.station-new-badge {
+    background: var(--accent-color);
+    color: var(--text-primary);
+    font-size: 0.6rem;
+    font-weight: 600;
+    padding: 0.2rem 0.35rem 0.175rem 0.4rem;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
 /* Preset number label */
 .preset-number-label {
     color: white;

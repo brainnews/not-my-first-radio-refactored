@@ -275,6 +275,13 @@ export class StationManager {
       this.renderPresetsInContainer(data.containerId);
     });
 
+    // Listen for sort changes (e.g., after starter pack import)
+    eventManager.on('library:sort-change', (sortOption: string) => {
+      if (sortOption === 'date-added-newest') {
+        this.setSortOption(StationSortOption.DATE_ADDED_NEWEST);
+      }
+    });
+
     // Listen for per-station listening time updates
     eventManager.on('player:listening-time', (data: { totalTime: number, station: LocalStation }) => {
       this.updateStationListeningTime(data.station, data.totalTime);
@@ -1777,6 +1784,15 @@ export class StationManager {
     const stationNameContainer = createElement('div', { className: 'station-name-container' });
     const stationName = createElement('h3', {}, [station.customName || station.name]);
     stationNameContainer.appendChild(stationName);
+    
+    // Add NEW badge for stations that haven't been played yet
+    if ((station.playCount || 0) === 0) {
+      const newBadge = createElement('span', { 
+        className: 'station-new-badge',
+        title: 'New station - not played yet'
+      }, ['NEW']);
+      stationNameContainer.appendChild(newBadge);
+    }
     
     // Add animated equalizer for currently playing station
     if (isCurrentlyPlaying && this.isCurrentlyPlaying) {
