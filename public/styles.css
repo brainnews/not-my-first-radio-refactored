@@ -1169,12 +1169,8 @@ main {
 
 /* Mobile responsiveness for volume controls */
 @media (max-width: 768px) {
-    .volume-controls {
-        gap: 0.25rem;
-    }
-    
     .volume-slider {
-        width: 60px;
+        display: none;
     }
 }
 /* Adjust player bar layout */
