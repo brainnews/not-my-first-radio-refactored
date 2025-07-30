@@ -17,7 +17,7 @@ export interface UserManagerConfig {
  */
 export class UserManager {
   private username: string = '';
-  private userStats: UserStats;
+  private userStats!: UserStats;
   private config: UserManagerConfig;
 
   // Offensive words filter

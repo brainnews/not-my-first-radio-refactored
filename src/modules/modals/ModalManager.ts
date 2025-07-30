@@ -82,7 +82,7 @@ export class ModalManager {
    */
   private setupKeyboardHandlers(): void {
     if (this.config.closeOnEscape) {
-      const cleanup = addEventListenerWithCleanup(document, 'keydown', (event) => {
+      const cleanup = addEventListenerWithCleanup(document.body, 'keydown', (event) => {
         if (event.key === 'Escape' && this.modalState.isOpen) {
           this.close();
         }

@@ -16,7 +16,7 @@ export interface SettingsManagerConfig {
  * Manages application settings and user preferences
  */
 export class SettingsManager {
-  private settings: AppSettings;
+  private settings!: AppSettings;
   private container: HTMLElement | null;
   private autoSave: boolean;
 

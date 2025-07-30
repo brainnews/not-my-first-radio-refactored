@@ -27,7 +27,7 @@ export interface NotificationData {
  */
 export class AchievementNotification {
   private config: AchievementNotificationConfig;
-  private container: HTMLElement;
+  private container!: HTMLElement;
   private activeNotifications: Set<HTMLElement> = new Set();
 
   constructor(config: AchievementNotificationConfig = {}) {

@@ -36,7 +36,7 @@ export class NotificationManager {
    * Create notification container if it doesn't exist
    */
   private createContainer(): HTMLElement {
-    let container = querySelector('.notification-container');
+    let container = document.querySelector('.notification-container') as HTMLElement;
     
     if (!container) {
       container = createElement('div', {

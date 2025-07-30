@@ -190,8 +190,7 @@ export class LibraryView {
   /**
    * Show station context menu
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private showStationMenu(station: LocalStation, anchorElement: HTMLElement): void {
+  private showStationMenu(_station: LocalStation, _anchorElement: HTMLElement): void {
     // Remove any existing menu
     const existingMenu = document.querySelector('.library-station-menu');
     if (existingMenu) {

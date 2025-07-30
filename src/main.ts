@@ -101,8 +101,8 @@ if (import.meta.env.DEV) {
     setTimeout(() => {
       const perfData = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
       console.log('Performance metrics:', {
-        'DOM Content Loaded': Math.round(perfData.domContentLoadedEventEnd - perfData.navigationStart),
-        'Load Complete': Math.round(perfData.loadEventEnd - perfData.navigationStart),
+        'DOM Content Loaded': Math.round(perfData.domContentLoadedEventEnd - perfData.domContentLoadedEventStart),
+        'Load Complete': Math.round(perfData.loadEventEnd - perfData.loadEventStart),
         'First Paint': Math.round(performance.getEntriesByType('paint')[0]?.startTime || 0),
       });
     }, 1000);

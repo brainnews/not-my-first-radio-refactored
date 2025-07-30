@@ -196,7 +196,18 @@ export type AppEventType =
   | 'search:station-validated'
   | 'search:station-validation-failed'
   | 'search:immediate-results'
-  | 'batch:flush';
+  | 'batch:flush'
+  | 'notification:achievement'
+  | 'notification:hide'
+  | 'notification:clear-all'
+  | 'notification:shown'
+  | 'notification:hidden'
+  | 'modal:toggle'
+  | 'modal:opened'
+  | 'modal:closed'
+  | 'settings:loaded'
+  | 'settings:saved'
+  | 'settings:applied';
 
 /**
  * Event interface

@@ -32,16 +32,10 @@ export interface AchievementProgress {
  */
 export class AchievementManager {
   private achievements: Map<string, Achievement> = new Map();
-  private config: AchievementManagerConfig;
-  private userStats: UserStats;
+  private userStats!: UserStats;
   private categories: AchievementCategory[] = [];
 
-  constructor(config: AchievementManagerConfig = {}) {
-    this.config = {
-      enableNotifications: true,
-      notificationDuration: 5000,
-      ...config
-    };
+  constructor(_config: AchievementManagerConfig = {}) {
 
     this.initializeAchievements();
     this.loadProgress();

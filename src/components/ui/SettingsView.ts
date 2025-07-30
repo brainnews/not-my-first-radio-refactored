@@ -40,7 +40,7 @@ export interface SettingItem {
 export class SettingsView {
   private container: HTMLElement;
   private config: SettingsViewConfig;
-  private settings!: AppSettings;
+  private _settings!: AppSettings;
   private sections: SettingSection[] = [];
 
   constructor(config: SettingsViewConfig = {}) {

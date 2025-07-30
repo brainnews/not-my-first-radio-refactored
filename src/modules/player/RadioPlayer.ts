@@ -32,7 +32,7 @@ export class RadioPlayer {
   private listeningTimeAccumulator = 0;
   private isPageHidden = false;
   private wasPlayingBeforeHidden = false;
-  private visibilityHandler: () => void;
+  private visibilityHandler!: () => void;
   private pauseEventCleanup: (() => void) | null = null;
 
   constructor(config: RadioPlayerConfig = {}) {

@@ -877,9 +877,9 @@ export class App {
   private setupSettingsControls(): void {
     try {
       // Settings overlay click to close (legacy)
-      const overlay = querySelector('#settings-overlay');
+      const overlay = querySelector('#settings-overlay') as HTMLElement;
       overlay.addEventListener('click', () => {
-        const settingsPanel = querySelector('#settings-panel');
+        const settingsPanel = querySelector('#settings-panel') as HTMLElement;
         if (!settingsPanel.classList.contains('hidden')) {
           this.closeSettingsPanel(settingsPanel, overlay);
         }
