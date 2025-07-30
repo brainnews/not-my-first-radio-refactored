@@ -86,7 +86,6 @@ export class StationManager {
   private debouncedFilterInContainer: (container: HTMLElement) => void;
   private delegationContext: string | null = null;
   private shuffleHistory: string[] = []; // Track last 5 shuffled station UUIDs
-  private lastShuffleTime: number = 0;
 
   constructor(config: StationManagerConfig = {}) {
     this.container = config.container || querySelector('#stations');
@@ -466,17 +465,6 @@ export class StationManager {
       return;
     }
 
-    // Check minimum time between shuffles (10 seconds)
-    const now = Date.now();
-    if (now - this.lastShuffleTime < 10000) {
-      eventManager.emit('notification:show', {
-        type: 'info',
-        message: 'Please wait before shuffling again',
-        duration: 2000
-      });
-      return;
-    }
-
     const selectedStation = this.selectShuffleStation();
     if (!selectedStation) {
       eventManager.emit('notification:show', {
@@ -487,8 +475,6 @@ export class StationManager {
       return;
     }
 
-    this.lastShuffleTime = now;
-    
     // Add to shuffle history
     this.shuffleHistory.push(selectedStation.stationuuid);
     if (this.shuffleHistory.length > 5) {
