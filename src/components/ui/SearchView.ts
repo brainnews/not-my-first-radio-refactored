@@ -191,7 +191,7 @@ export class SearchView {
           </div>
           <div id="stations-list" class="stations-list"></div>
           <button type="button" id="load-more" class="load-more-button hidden">
-            Load More Stations
+            Load more
           </button>
         </div>
       </div>
