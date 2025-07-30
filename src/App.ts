@@ -1800,6 +1800,11 @@ export class App {
           playIcon.classList.remove('spinning');
         }
       }
+      
+      // Update page title when playing state changes
+      if (this.previousPlayerUIState.isPlaying !== currentUIState.isPlaying) {
+        this.updatePageTitle();
+      }
     }
 
     // Set up play/pause button click handler (only set once)
