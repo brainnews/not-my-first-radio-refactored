@@ -320,62 +320,33 @@ export class App {
    * Show shared station import modal with preview
    */
   private showSharedStationImportModal(stationsToImport: LocalStation[], sharedData: any, failedCount: number): void {
-    const currentStations = this.stationManager.getStations();
     const username = sharedData.u || 'Someone';
-    const listName = sharedData.name || `${username}'s Stations`;
     
-    // Calculate merge impact
-    const duplicateStations = this.findDuplicateStationsForShared(stationsToImport, currentStations);
-    const newStationsCount = stationsToImport.length - duplicateStations;
+    // Handle pluralization
+    const isPlural = stationsToImport.length > 1;
+    const buttonText = isPlural ? 'Add stations' : 'Add station';
+    const modalTitle = isPlural ? 'Add stations' : 'Add station';
+
+    // Generate station name display
+    let stationNameDisplay: string;
+    if (isPlural) {
+      // For multiple stations, show count and "stations"
+      stationNameDisplay = `${stationsToImport.length} stations`;
+    } else {
+      // For single station, show the actual station name
+      stationNameDisplay = stationsToImport[0].name;
+    }
 
     const content = `
       <div style="text-align: left;">
-        <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-          <h4 style="margin: 0 0 10px 0;">Shared Station List</h4>
-          <p><strong>From:</strong> ${listName}</p>
-          <p><strong>Stations to import:</strong> ${stationsToImport.length}</p>
-          ${failedCount > 0 ? `
-            <div style="color: var(--warning-color); margin-top: 10px;">
-              <p><strong>⚠️ ${failedCount} stations could not be loaded</strong></p>
-            </div>
-          ` : ''}
-          ${duplicateStations > 0 ? `
-            <div style="color: var(--warning-color); margin-top: 10px;">
-              <p><strong>Duplicates found:</strong></p>
-              <p>• ${duplicateStations} duplicate stations</p>
-            </div>
-          ` : ''}
-        </div>
-        
-        <div style="background: var(--bg-tertiary); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-          <h4 style="margin: 0 0 10px 0;">Your Current Collection</h4>
-          <p><strong>Your stations:</strong> ${currentStations.length}</p>
-        </div>
-
-        <h4>Choose import mode:</h4>
-        <div style="margin: 15px 0;">
-          <div style="padding: 10px; border: 2px solid var(--border-color); border-radius: 6px; margin-bottom: 10px; cursor: pointer;" data-mode="overwrite" id="overwrite-option">
-            <strong>🔄 Replace existing stations</strong>
-            <p style="margin: 5px 0 0 0; color: var(--text-secondary); font-size: 14px;">
-              Replace all your current stations with the shared ones
-            </p>
-          </div>
-          <div style="padding: 10px; border: 2px solid var(--border-color); border-radius: 6px; cursor: pointer;" data-mode="merge" id="merge-option">
-            <strong>➕ Add to existing stations</strong>
-            <p style="margin: 5px 0 0 0; color: var(--text-secondary); font-size: 14px;">
-              Add ${newStationsCount} new stations (duplicates will be ignored)
-            </p>
-          </div>
-        </div>
+        <h4 style="margin: 0 0 15px 0;">${stationNameDisplay}</h4>
+        <p style="margin: 0; color: var(--text-secondary);">From: ${username}</p>
       </div>
     `;
 
-    // Store selected mode for the import action
-    let selectedMode: 'overwrite' | 'merge' | null = null;
-
     const modal = {
       type: 'confirmation' as const,
-      title: 'Import Shared Stations',
+      title: modalTitle,
       content: content,
       actions: [
         {
@@ -387,14 +358,10 @@ export class App {
           }
         },
         {
-          label: 'Import (Select mode first)',
+          label: buttonText,
           style: 'primary' as const,
           action: async () => {
-            if (!selectedMode) {
-              this.notificationManager.warning('Please select an import mode first');
-              return;
-            }
-            await this.executeSharedStationImport(stationsToImport, selectedMode === 'merge', listName);
+            await this.executeSharedStationImport(stationsToImport, true, stationNameDisplay);
           }
         }
       ],
@@ -407,37 +374,6 @@ export class App {
     };
 
     this.modalManager.open(modal);
-
-    // Add mode selection handling after modal is rendered
-    setTimeout(() => {
-      const overwriteOption = document.getElementById('overwrite-option');
-      const mergeOption = document.getElementById('merge-option');
-      
-      if (overwriteOption && mergeOption) {
-        const selectMode = (mode: 'overwrite' | 'merge', selectedElement: HTMLElement, otherElement: HTMLElement) => {
-          // Remove previous selection
-          otherElement.style.borderColor = 'var(--border-color)';
-          
-          // Highlight selected mode
-          selectedElement.style.borderColor = 'var(--primary-color)';
-          selectedMode = mode;
-          
-          // Update import button
-          const importButton = document.querySelector('.modal-action-primary') as HTMLButtonElement;
-          if (importButton) {
-            importButton.textContent = mode === 'overwrite' ? 'Replace Stations' : 'Add Stations';
-          }
-        };
-
-        overwriteOption.addEventListener('click', () => {
-          selectMode('overwrite', overwriteOption, mergeOption);
-        });
-
-        mergeOption.addEventListener('click', () => {
-          selectMode('merge', mergeOption, overwriteOption);
-        });
-      }
-    }, 100);
   }
 
   /**
