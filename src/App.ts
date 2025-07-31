@@ -235,12 +235,20 @@ export class App {
 
       console.log('[App] Processing shared stations from URL:', sharedData);
 
+      // Show loading modal with radio wave animation
+      this.showStationLoadingModal(sharedData);
+
       const stationsToImport: LocalStation[] = [];
       let failedCount = 0;
+      const totalStations = sharedData.i.length;
 
       // Process each station identifier
-      for (const item of sharedData.i) {
+      for (let index = 0; index < sharedData.i.length; index++) {
+        const item = sharedData.i[index];
         try {
+          // Update loading progress
+          this.updateLoadingProgress(index + 1, totalStations);
+
           if (typeof item === 'string') {
             // Radio Browser UUID - fetch from API
             const response = await radioBrowserApi.getStationByUuid(item);
@@ -292,10 +300,12 @@ export class App {
         }
       }
 
-      // Show import modal if any stations were successfully processed
+      // Replace loading modal content with import modal if any stations were successfully processed
       if (stationsToImport.length > 0) {
-        this.showSharedStationImportModal(stationsToImport, sharedData, failedCount);
+        this.replaceLoadingModalWithImportModal(stationsToImport, sharedData);
       } else {
+        // Close loading modal and show error
+        this.closeLoadingModal();
         // All stations failed to process
         this.notificationManager.error(
           'Unable to import any stations from the shared link',
@@ -306,6 +316,7 @@ export class App {
 
     } catch (error) {
       console.error('[App] Error processing shared stations:', error);
+      this.closeLoadingModal();
       this.notificationManager.error(
         'Failed to process shared stations',
         4000
@@ -317,15 +328,99 @@ export class App {
   }
 
   /**
-   * Show shared station import modal with preview
+   * Show loading modal while stations are being fetched
    */
-  private showSharedStationImportModal(stationsToImport: LocalStation[], sharedData: any, failedCount: number): void {
+  private showStationLoadingModal(sharedData: any): void {
+    const username = sharedData.u || 'Someone';
+    const totalStations = sharedData.i.length;
+    const isPlural = totalStations > 1;
+    const stationName = isPlural ? `${totalStations} stations` : 'station';
+
+    const content = `
+      <div style="text-align: left; padding: 20px 0;">
+        <div style="margin-bottom: 20px;">
+          <strong>${username}</strong> shared <strong>${stationName}</strong>.
+        </div>
+        
+        <div style="margin-bottom: 20px;">
+          <div style="margin-bottom: 8px;">Loading stations...</div>
+          <div style="display: flex; align-items: center; gap: 15px;">
+            <div style="flex: 1; height: 6px; background: var(--bg-secondary); border-radius: 3px; overflow: hidden;">
+              <div id="loading-progress-bar" style="width: 0%; height: 100%; background: var(--accent-color); transition: width 0.3s ease;"></div>
+            </div>
+            <div id="loading-progress-text" style="color: var(--text-secondary); font-size: 14px; white-space: nowrap;">0%</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    const modal = {
+      type: 'confirmation' as const,
+      title: '',
+      content: content,
+      actions: [
+        {
+          label: 'Cancel',
+          style: 'secondary' as const,
+          action: () => {
+            // Clear share parameters when user cancels
+            sharingService.clearShareParams();
+            this.modalManager.close();
+          }
+        },
+        {
+          label: isPlural ? 'Add stations' : 'Add station',
+          style: 'primary' as const,
+          action: () => {
+            // This will be handled after loading completes
+          },
+          disabled: true
+        }
+      ],
+      size: 'medium' as const,
+      closable: false, // Don't allow closing during loading
+      onClose: () => {
+        // Clear share parameters when modal is closed
+        sharingService.clearShareParams();
+      }
+    };
+
+    // Open modal
+    this.modalManager.open(modal);
+  }
+
+  /**
+   * Update loading progress during station fetching
+   */
+  private updateLoadingProgress(current: number, total: number): void {
+    const progressText = document.getElementById('loading-progress-text');
+    const progressBar = document.getElementById('loading-progress-bar');
+    
+    if (progressText && progressBar) {
+      const percentage = Math.round((current / total) * 100);
+      
+      progressText.textContent = `${percentage}%`;
+      progressBar.style.width = `${percentage}%`;
+    }
+  }
+
+  /**
+   * Close the loading modal
+   */
+  private closeLoadingModal(): void {
+    // Close the modal
+    this.modalManager.close();
+  }
+
+  /**
+   * Replace loading modal with import modal by updating content
+   */
+  private replaceLoadingModalWithImportModal(stationsToImport: LocalStation[], sharedData: any): void {
     const username = sharedData.u || 'Someone';
     
     // Handle pluralization
     const isPlural = stationsToImport.length > 1;
     const buttonText = isPlural ? 'Add stations' : 'Add station';
-    const modalTitle = isPlural ? 'Add stations' : 'Add station';
 
     // Generate station name display
     let stationNameDisplay: string;
@@ -337,57 +432,62 @@ export class App {
       stationNameDisplay = stationsToImport[0].name;
     }
 
-    const content = `
-      <div style="text-align: left;">
-        <h4 style="margin: 0 0 15px 0;">${stationNameDisplay}</h4>
-        <p style="margin: 0; color: var(--text-secondary);">From: ${username}</p>
-      </div>
-    `;
+    // Update modal content
+    const modalBody = document.querySelector('.modal-body');
+    if (modalBody) {
+      modalBody.innerHTML = `
+        <div style="text-align: left; padding: 20px 0;">
+          <div style="margin-bottom: 20px;">
+            <strong>${username}</strong> shared <strong>${stationNameDisplay}</strong>.
+          </div>
+          
+          <div style="margin-bottom: 20px;">
+            <div style="margin-bottom: 8px;">Ready to import</div>
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <div style="flex: 1; height: 6px; background: var(--bg-secondary); border-radius: 3px; overflow: hidden;">
+                <div style="width: 100%; height: 100%; background: var(--accent-color);"></div>
+              </div>
+              <div style="color: var(--text-secondary); font-size: 14px; white-space: nowrap;">100%</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
 
-    const modal = {
-      type: 'confirmation' as const,
-      title: modalTitle,
-      content: content,
-      actions: [
-        {
-          label: 'Cancel',
-          style: 'secondary' as const,
-          action: () => {
-            // Clear share parameters when user cancels
-            sharingService.clearShareParams();
-          }
-        },
-        {
-          label: buttonText,
-          style: 'primary' as const,
-          action: async () => {
-            await this.executeSharedStationImport(stationsToImport, true, stationNameDisplay);
-          }
-        }
-      ],
-      size: 'medium' as const,
-      closable: true,
-      onClose: () => {
-        // Clear share parameters when modal is closed
+    // Update modal actions by replacing the entire actions container
+    const modalContainer = document.querySelector('.modal-container');
+    const existingActions = document.querySelector('.modal-actions');
+    if (modalContainer && existingActions) {
+      // Remove existing actions
+      existingActions.remove();
+      
+      // Create new actions container
+      const actionsContainer = document.createElement('div');
+      actionsContainer.className = 'modal-actions';
+      
+      // Cancel button
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'modal-action modal-action-secondary';
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.addEventListener('click', () => {
         sharingService.clearShareParams();
-      }
-    };
-
-    this.modalManager.open(modal);
+        this.modalManager.close();
+      });
+      
+      // Confirm button
+      const confirmBtn = document.createElement('button');
+      confirmBtn.className = 'modal-action modal-action-primary';
+      confirmBtn.textContent = buttonText;
+      confirmBtn.addEventListener('click', async () => {
+        await this.executeSharedStationImport(stationsToImport, true, stationNameDisplay);
+      });
+      
+      actionsContainer.appendChild(cancelBtn);
+      actionsContainer.appendChild(confirmBtn);
+      modalContainer.appendChild(actionsContainer);
+    }
   }
 
-  /**
-   * Find duplicate stations for shared import
-   */
-  private findDuplicateStationsForShared(importStations: LocalStation[], currentStations: LocalStation[]): number {
-    if (!Array.isArray(importStations) || !Array.isArray(currentStations)) return 0;
-    
-    const currentIds = new Set(currentStations.map(station => station.stationuuid || station.url));
-    return importStations.filter(station => 
-      (station.stationuuid && currentIds.has(station.stationuuid)) ||
-      (!station.stationuuid && currentIds.has(station.url))
-    ).length;
-  }
 
   /**
    * Execute shared station import with selected mode
@@ -408,6 +508,9 @@ export class App {
       
       // Clear share parameters after successful import
       sharingService.clearShareParams();
+      
+      // Close the modal after successful import
+      this.modalManager.close();
       
     } catch (error) {
       console.error('Shared station import execution failed:', error);
@@ -599,47 +702,36 @@ export class App {
     
     // Update the view state
     this.state.currentView = view;
-    this.updateViewUI(view, previousView);
+    this.updateViewUI(view);
     
     console.log(`[App] Router changed view from ${previousView} to ${view}`);
   }
 
   /**
-   * Switch to a different view (public method that emits events)
+   * Switch to a different view
    */
   private switchView(view: 'library' | 'settings' | 'search'): void {
-    this.switchViewInternal(view, true);
-  }
-
-  /**
-   * Internal view switching implementation
-   */
-  private switchViewInternal(view: 'library' | 'settings' | 'search', emitEvents: boolean): void {
     const previousView = this.state.currentView;
     
     // Skip if switching to the same view
     if (previousView === view) return;
     
-    // Emit view change event BEFORE switching (for preview transfer detection) - only if requested
-    if (emitEvents) {
-      eventManager.emit('view:change', { 
-        from: previousView, 
-        to: view 
-      });
-    }
+    // Emit view change event BEFORE switching (for preview transfer detection)
+    eventManager.emit('view:change', { 
+      from: previousView, 
+      to: view 
+    });
     
     this.state.currentView = view;
     
     // Update UI immediately without transitions for better performance
-    this.updateViewUI(view, previousView);
+    this.updateViewUI(view);
     
-    // Emit view changed event for other modules - only if requested
-    if (emitEvents) {
-      eventManager.emit('view:changed', { 
-        currentView: view, 
-        previousView 
-      });
-    }
+    // Emit view changed event for other modules
+    eventManager.emit('view:changed', { 
+      currentView: view, 
+      previousView 
+    });
     
     console.log(`[App] Switched from ${previousView} to ${view} view`);
   }
@@ -648,7 +740,7 @@ export class App {
   /**
    * Update UI elements for the current view
    */
-  private updateViewUI(currentView: 'library' | 'settings' | 'search', _previousView: 'library' | 'settings' | 'search'): void {
+  private updateViewUI(currentView: 'library' | 'settings' | 'search'): void {
     // Get main UI sections (optional for legacy support)
     let settingsPanel: HTMLElement | null = null;
     let settingsOverlay: HTMLElement | null = null;
@@ -737,10 +829,6 @@ export class App {
   }
 
   /**
-   * Determine navigation type based on screen size
-   */
-
-  /**
    * Set up global event handlers
    */
   private setupGlobalEventHandlers(): void {
@@ -802,7 +890,7 @@ export class App {
     this.stationManager.renderStations();
 
     // Initialize the current view
-    this.updateViewUI(this.state.currentView, this.state.currentView);
+    this.updateViewUI(this.state.currentView);
 
     console.log('[App] Initial UI setup complete');
   }
@@ -845,269 +933,18 @@ export class App {
     }
   }
 
-  /**
-   * Populate settings content HTML
-   */
-  private populateSettingsContent(settingsContent: HTMLElement): void {
-    settingsContent.innerHTML = `
-      <div class="settings-section">
-        <h3>Username</h3>
-        <div class="username-section">
-          <p class="username-hint">This name will be used when sharing your stations with other people.</p>
-          <div class="username-input-wrapper">
-            <input type="text" id="username-input" class="username-input">
-            <button id="save-username" class="save-username-btn">Save</button>
-          </div>
-        </div>
-      </div>
-      
-      <div class="settings-section">
-        <h3>Share & Export Stations</h3>
-        <button id="share-url" class="settings-btn">
-          <span class="material-symbols-rounded">link</span>
-          Share with a link
-        </button>
-        <button id="share-qr" class="settings-btn">
-          <span class="material-symbols-rounded">qr_code</span>
-          Share with a QR code
-        </button>
-        <button id="export-data" class="settings-btn">
-          <span class="material-symbols-rounded">download</span>
-          Export as .json
-        </button>
-      </div>
-      
-      <div class="settings-section">
-        <h3>Import Stations</h3>
-        <div class="file-input-wrapper settings-btn">
-          <input type="file" id="import-file" accept=".json" style="display: none;">
-          <label for="import-file">
-            <span class="material-symbols-rounded">upload</span>
-            Import from a .json file
-          </label>
-        </div>
-        <button id="open-add-station" class="settings-btn">
-          <span class="material-symbols-rounded">add_circle</span>
-          Add a station manually
-        </button>
-      </div>
-      
-      <div class="settings-section">
-        <h3>Achievements</h3>
-        <button id="open-achievements" class="settings-btn">
-          <span class="material-symbols-rounded">emoji_events</span>
-          View achievements
-        </button>
-      </div>
-      
-      <div class="settings-section">
-        <h3>Data Management</h3>
-        <button id="clear-stations" class="settings-btn danger">
-          <span class="material-symbols-rounded">delete_sweep</span>
-          Clear saved stations
-        </button>
-        <button id="reset-achievements" class="settings-btn danger">
-          <span class="material-symbols-rounded">restart_alt</span>
-          Reset achievements
-        </button>
-      </div>
-      
-      <div class="settings-section" style="margin-top: 4rem;">
-        <a href="https://milesgilbert.xyz/thinking/a-certification-for-algorithm-free-platforms/" target="_blank">
-          <img src="./images/non-algo-badge.png" alt="Non-Algo Project verified badge" style="width: 100%; max-width: 150px; margin-bottom: 1rem; display: none;">
-        </a>
-        <p>Not My First Radio is developed by <a href="https://www.milesgilbert.xyz" target="_blank">Miles Gilbert</a> as part of a series of non-algorithmically driven discovery apps. Read more <a href="https://milesgilbert.xyz/thinking/a-certification-for-algorithm-free-platforms/" target="_blank">here</a>.</p>
-        <button id="open-terms" class="settings-btn">
-          Terms & Privacy Facts
-        </button>
-      </div>
-      <div class="settings-section">
-        <a href='https://ko-fi.com/Y8Y61HEIMA' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi1.png?v=6' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
-      </div>
-    `;
-  }
-
-  /**
-   * Set up settings panel controls when panel is opened
-   */
-  private setupSettingsPanelControls(): void {
-    // Only setup once
-    if (this.settingsPanelSetup) return;
-    this.settingsPanelSetup = true;
-
-    this.setupUsernameControls();
-    this.setupSettingsActions();
-  }
-
-  private settingsPanelSetup = false;
-
-  /**
-   * Set up username controls
-   */
-  private setupUsernameControls(): void {
-    try {
-      const usernameInput = querySelector('#username-input') as HTMLInputElement;
-      const saveUsernameBtn = querySelector('#save-username');
-
-      // Load current username
-      const currentUsername = this.userManager.getUsername();
-      if (currentUsername) {
-        usernameInput.value = currentUsername;
-      }
-
-      // Save username on button click
-      saveUsernameBtn.addEventListener('click', () => {
-        const newUsername = usernameInput.value.trim();
-        if (newUsername) {
-          try {
-            this.userManager.setUsername(newUsername);
-            this.notificationManager.success(`Username saved as "${newUsername}"`);
-          } catch (error) {
-            this.notificationManager.error(`Failed to save username: ${(error as Error).message}`);
-          }
-        } else {
-          this.notificationManager.error('Please enter a valid username');
-        }
-      });
-
-      // Save username on Enter key
-      usernameInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          (saveUsernameBtn as HTMLButtonElement).click();
-        }
-      });
-    } catch (error) {
-      console.warn('Failed to setup username controls:', error);
-    }
-  }
-
-  /**
-   * Set up settings panel action buttons
-   */
-  private setupSettingsActions(): void {
-    try {
-      // Share with link button
-      const shareUrlBtn = querySelector('#share-url');
-      shareUrlBtn.addEventListener('click', async () => {
-        await this.shareStationsAsUrl();
-      });
-
-      // Share with QR code button
-      const shareQrBtn = querySelector('#share-qr');
-      shareQrBtn.addEventListener('click', async () => {
-        await this.shareStationsAsQR();
-      });
-
-      // Export as JSON button
-      const exportBtn = querySelector('#export-data');
-      exportBtn.addEventListener('click', () => {
-        this.exportStationsAsJSON();
-      });
-
-      // Import from JSON button
-      const importBtn = querySelector('#import-file');
-      importBtn.addEventListener('change', (e) => {
-        this.handleStationImport(e as Event);
-      });
-
-      // Add station manually button
-      const addStationBtn = querySelector('#open-add-station');
-      addStationBtn.addEventListener('click', () => {
-        this.modalManager.showAddStation((stationData) => {
-          eventManager.emit('station:add', stationData);
-        });
-      });
-
-      // Achievements button
-      const achievementsBtn = querySelector('#open-achievements');
-      achievementsBtn.addEventListener('click', () => {
-        this.achievementModal.show();
-      });
-
-      // Terms & Privacy Facts button
-      const termsBtn = querySelector('#open-terms');
-      termsBtn.addEventListener('click', () => {
-        this.showTermsModal();
-      });
-
-      // Data management buttons
-      this.setupDataManagementButtons();
-    } catch (error) {
-      console.warn('Failed to setup settings actions:', error);
-    }
-  }
-
-  /**
-   * Set up data management buttons with confirmations
-   */
-  private setupDataManagementButtons(): void {
-    try {
-      const clearStationsBtn = querySelector('#clear-stations');
-      const resetAchievementsBtn = querySelector('#reset-achievements');
-
-      clearStationsBtn.addEventListener('click', () => {
-        this.modalManager.confirm(
-          'Clear All Stations',
-          'Are you sure you want to clear all saved stations? This cannot be undone.',
-          () => {
-            this.stationManager.clearStations();
-            this.notificationManager.success('All stations cleared');
-          }
-        );
-      });
 
 
-      resetAchievementsBtn.addEventListener('click', () => {
-        this.modalManager.confirm(
-          'Reset Achievements',
-          'Are you sure you want to reset all achievements? This cannot be undone.',
-          () => {
-            this.achievementManager.resetAllAchievements();
-            this.notificationManager.success('All achievements reset');
-          }
-        );
-      });
-    } catch (error) {
-      console.warn('Failed to setup data management buttons:', error);
-    }
-  }
 
-  /**
-   * Set button loading state
-   */
-  private setButtonLoading(buttonId: string, loading: boolean): void {
-    try {
-      const button = querySelector(buttonId) as HTMLButtonElement;
-      
-      if (loading) {
-        // Store original HTML content if not already stored
-        if (!button.getAttribute('data-original-html')) {
-          button.setAttribute('data-original-html', button.innerHTML);
-        }
-        button.disabled = true;
-        button.innerHTML = '<span class="material-symbols-rounded spinning">progress_activity</span> ' + (buttonId.includes('qr') ? 'Generating QR...' : 'Creating Link...');
-        button.style.opacity = '0.7';
-      } else {
-        button.disabled = false;
-        const originalHtml = button.getAttribute('data-original-html');
-        if (originalHtml) {
-          button.innerHTML = originalHtml;
-        }
-        button.style.opacity = '1';
-      }
-    } catch (error) {
-      console.warn('[App] Failed to update button state:', error);
-    }
-  }
+
+
 
   /**
    * Share stations as URL
    */
   private async shareStationsAsUrl(): Promise<void> {
-    this.setButtonLoading('#share-url', true);
-    
     try {
-      const stations = this.stationManager.getStations();
+      const stations = this.stationManager.getAllStations();
       if (stations.length === 0) {
         this.notificationManager.warning('No stations to share');
         return;
@@ -1127,8 +964,6 @@ export class App {
       }
     } catch (error) {
       this.notificationManager.error('Failed to create share link');
-    } finally {
-      this.setButtonLoading('#share-url', false);
     }
   }
 
@@ -1136,10 +971,8 @@ export class App {
    * Share stations as QR code
    */
   private async shareStationsAsQR(): Promise<void> {
-    this.setButtonLoading('#share-qr', true);
-    
     try {
-      const stations = this.stationManager.getStations();
+      const stations = this.stationManager.getAllStations();
       if (stations.length === 0) {
         this.notificationManager.warning('No stations to share');
         return;
@@ -1164,8 +997,6 @@ export class App {
     } catch (error) {
       console.error('QR code generation error:', error);
       this.notificationManager.error('Failed to create QR code');
-    } finally {
-      this.setButtonLoading('#share-qr', false);
     }
   }
 
@@ -1173,7 +1004,7 @@ export class App {
    * Show share options menu for stations library
    */
   private showLibraryShareMenu(): void {
-    const stations = this.stationManager.getStations();
+    const stations = this.stationManager.getAllStations();
     if (stations.length === 0) {
       this.notificationManager.warning('No stations to share');
       return;
@@ -1316,7 +1147,7 @@ export class App {
    */
   private exportStationsAsJSON(): void {
     try {
-      const data = this.settingsManager.exportSettings();
+      const data = this.settingsManager.exportStationData();
       const blob = new Blob([data], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       
@@ -1339,42 +1170,6 @@ export class App {
     }
   }
 
-  /**
-   * Handle station import from file
-   */
-  private handleStationImport(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        
-        if (!content || content.trim().length === 0) {
-          this.notificationManager.error('File appears to be empty');
-          return;
-        }
-        
-        this.showImportOptionsModal(content);
-      } catch (error) {
-        console.error('Error reading file:', error);
-        this.notificationManager.error('Failed to read import file');
-      }
-      
-      // Clear the input so the same file can be selected again
-      input.value = '';
-    };
-    
-    reader.onerror = () => {
-      this.notificationManager.error('Failed to read import file');
-      input.value = '';
-    };
-    
-    reader.readAsText(file);
-  }
 
   /**
    * Show import options modal with preview
@@ -1391,7 +1186,7 @@ export class App {
       }
 
       // Get current station counts for comparison
-      const currentStations = this.stationManager.getStations();
+      const currentStations = this.stationManager.getAllStations();
       
       // Calculate merge impact
       const duplicateStations = this.findDuplicateStations(importStations, currentStations);
@@ -1526,7 +1321,7 @@ export class App {
    */
   private async executeImport(jsonContent: string, mergeMode: boolean): Promise<void> {
     try {
-      const success = this.settingsManager.importSettings(jsonContent, mergeMode);
+      const success = this.settingsManager.importStationData(jsonContent, mergeMode);
       
       if (success) {
         // Track import achievement
@@ -1536,7 +1331,7 @@ export class App {
         this.notificationManager.success(message);
         
         // Reload only station data from storage and refresh the UI
-        this.stationManager.reloadStationsFromStorage();
+        this.stationManager.loadStations();
         this.stationManager.renderStations();
       } else {
         this.notificationManager.error('Failed to import stations - invalid file format');
@@ -1778,7 +1573,7 @@ export class App {
             shuffleIcon.classList.remove('spinning');
           }
           // Re-enable based on station count
-          const stations = this.stationManager.getStations();
+          const stations = this.stationManager.getAllStations();
           shuffleBtn.disabled = stations.length < 2;
         }, 1000);
       });
@@ -1787,7 +1582,7 @@ export class App {
     
     // Update shuffle button state based on station count
     if (shuffleBtn) {
-      const stations = this.stationManager.getStations();
+      const stations = this.stationManager.getAllStations();
       const shouldDisable = stations.length < 2;
       
       shuffleBtn.disabled = shouldDisable;
@@ -1965,15 +1760,6 @@ export class App {
     settingsPanel.style.visibility = 'visible';
     settingsPanel.style.opacity = '1';
     
-    // Populate settings content if it's empty
-    const settingsContent = settingsPanel.querySelector('.settings-content');
-    if (settingsContent && settingsContent.children.length === 0) {
-      this.populateSettingsContent(settingsContent as HTMLElement);
-    }
-    
-    // Set up panel controls now that elements are visible
-    this.setupSettingsPanelControls();
-    
     // Prevent body scrolling
     document.body.style.overflow = 'hidden';
     document.body.style.height = '100vh';
@@ -2052,96 +1838,6 @@ export class App {
     });
   }
 
-  /**
-   * Show Terms & Privacy Facts modal
-   */
-  private showTermsModal(): void {
-    const termsContent = `
-      <div class="terms-content">
-        <div class="serving-size">
-          <h3>Serving Size: 1 App</h3>
-          <div class="divider"></div>
-        </div>
-
-        <div class="data-facts">
-          <h3>Data Collection Facts</h3>
-          <div class="fact-row">
-            <span>Personal Data</span>
-            <span class="percentage">0%</span>
-          </div>
-          <div class="fact-row">
-            <span>Tracking</span>
-            <span class="percentage">0%</span>
-          </div>
-          <div class="fact-row">
-            <span>Cookies</span>
-            <span class="percentage">0%</span>
-          </div>
-          <div class="divider"></div>
-        </div>
-
-        <div class="storage-facts">
-          <h3>Local Storage Facts</h3>
-          <div class="fact-row">
-            <span>Your Stations</span>
-            <span class="checkmark">✓</span>
-          </div>
-          <div class="fact-row">
-            <span>Username</span>
-            <span class="checkmark">✓</span>
-          </div>
-          <div class="fact-row">
-            <span>Settings</span>
-            <span class="checkmark">✓</span>
-          </div>
-          <div class="divider"></div>
-        </div>
-
-        <div class="external-services">
-          <h3>External Services</h3>
-          <div class="service">
-            <strong>Radio Browser API</strong>
-            <p>Used only to fetch station data</p>
-          </div>
-          <div class="service">
-            <strong>URL Shortener</strong>
-            <p>Used only when sharing stations</p>
-          </div>
-          <div class="divider"></div>
-        </div>
-
-        <div class="user-rights">
-          <h3>User Rights</h3>
-          <ul>
-            <li>All your data stays on your device</li>
-            <li>No tracking or analytics</li>
-            <li>No data sharing without your consent</li>
-            <li>Export your data anytime</li>
-            <li>Delete your data anytime</li>
-          </ul>
-          <div class="divider"></div>
-        </div>
-
-        <div class="disclaimer">
-          <h3>Disclaimer</h3>
-          <p>This app is provided "as is" without any warranties. We are not responsible for the content of radio stations or any issues with streaming.</p>
-          <div class="divider"></div>
-        </div>
-
-        <div class="last-updated">
-          <p><strong>Last updated: May 2025</strong></p>
-        </div>
-      </div>
-
-    `;
-
-    this.modalManager.open({
-      type: 'terms',
-      title: 'Not My First Radio',
-      content: termsContent,
-      size: 'medium'
-    });
-  }
 
   /**
    * Handle critical errors

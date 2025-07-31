@@ -43,7 +43,6 @@ export class SearchManager {
   private currentFilters: SearchFilters = {};
   private currentOffset = 0;
   private isSearching = false;
-  private lastSearchTime = 0;
   private previewAudio: HTMLAudioElement | null = null;
   private currentPreviewStation: RadioStation | null = null;
   private isIntentionalStop = false;
@@ -53,6 +52,19 @@ export class SearchManager {
   private readonly maxResults: number;
   private readonly enableMcpSearch: boolean;
   private readonly enableValidation: boolean;
+
+  // Store bound event handlers for proper cleanup
+  private readonly boundHandlers = {
+    searchExecute: this.handleSearchExecute.bind(this),
+    filterChange: this.handleFilterChange.bind(this),
+    loadMore: this.handleLoadMore.bind(this),
+    clearSearch: this.handleClearSearch.bind(this),
+    previewStation: this.handlePreviewStation.bind(this),
+    stopPreview: this.handleStopPreview.bind(this),
+    getCountries: this.handleGetCountries.bind(this),
+    getGenres: this.handleGetGenres.bind(this),
+    mainPlayerStarted: this.handleMainPlayerStarted.bind(this)
+  };
 
   constructor(config: SearchManagerConfig = {}) {
     this.debounceMs = config.debounceMs ?? 500;
@@ -69,21 +81,17 @@ export class SearchManager {
    * Set up event listeners
    */
   private setupEventListeners(): void {
-    eventManager.on('search:execute', this.handleSearchExecute.bind(this));
-    eventManager.on('search:filter', this.handleFilterChange.bind(this));
-    eventManager.on('search:load-more', this.handleLoadMore.bind(this));
-    eventManager.on('search:clear', this.handleClearSearch.bind(this));
-    eventManager.on('search:preview', this.handlePreviewStation.bind(this));
-    eventManager.on('search:stop-preview', this.handleStopPreview.bind(this));
-    eventManager.on('search:get-countries', this.handleGetCountries.bind(this));
-    eventManager.on('search:get-genres', this.handleGetGenres.bind(this));
+    eventManager.on('search:execute', this.boundHandlers.searchExecute);
+    eventManager.on('search:filter', this.boundHandlers.filterChange);
+    eventManager.on('search:load-more', this.boundHandlers.loadMore);
+    eventManager.on('search:clear', this.boundHandlers.clearSearch);
+    eventManager.on('search:preview', this.boundHandlers.previewStation);
+    eventManager.on('search:stop-preview', this.boundHandlers.stopPreview);
+    eventManager.on('search:get-countries', this.boundHandlers.getCountries);
+    eventManager.on('search:get-genres', this.boundHandlers.getGenres);
     
     // Stop preview when main player starts playing
-    eventManager.on('station:play', this.handleMainPlayerStarted.bind(this));
-    eventManager.on('station:selected', this.handleMainPlayerStarted.bind(this));
-    
-    // Handle view changes for preview transfer - DISABLED to prevent event loops
-    // eventManager.on('view:change', this.handleViewChange.bind(this));
+    eventManager.on('station:play', this.boundHandlers.mainPlayerStarted);
   }
 
   /**
@@ -280,7 +288,6 @@ export class SearchManager {
     }
 
     this.isSearching = true;
-    this.lastSearchTime = Date.now();
 
     try {
       let result;
@@ -452,13 +459,9 @@ export class SearchManager {
     }
     
     // Multi-word queries that are clearly genre-focused
-    const genrePatterns = [
-      /^(jazz|rock|pop|classical|electronic|country|blues|reggae|metal|indie|dance|hip hop|rap)$/i,
-      /^(smooth jazz|classic rock|hard rock|heavy metal|death metal|black metal)$/i,
-      /^(house music|techno music|country music|pop music)$/i,
-    ];
+    const genrePattern = /^(jazz|rock|pop|classical|electronic|country|blues|reggae|metal|indie|dance|hip hop|rap|smooth jazz|classic rock|hard rock|heavy metal|death metal|black metal|house music|techno music|country music|pop music)$/i;
     
-    return genrePatterns.some(pattern => pattern.test(queryLower));
+    return genrePattern.test(queryLower);
   }
 
   /**
@@ -498,13 +501,6 @@ export class SearchManager {
       searchParams.bitrate = this.currentFilters.minBitrate;
     }
 
-    // Remove undefined values
-    Object.keys(searchParams).forEach(key => {
-      if (searchParams[key as keyof SearchParams] === undefined) {
-        delete searchParams[key as keyof SearchParams];
-      }
-    });
-
     return radioBrowserApi.searchStations(searchParams);
   }
 
@@ -512,26 +508,16 @@ export class SearchManager {
    * Get popular stations
    */
   async getPopularStations(limit = 20): Promise<RadioStation[]> {
-    try {
-      const result = await radioBrowserApi.getPopularStations(limit);
-      return result.success ? result.data || [] : [];
-    } catch (error) {
-      console.error('[SearchManager] Popular stations error:', error);
-      return [];
-    }
+    const result = await radioBrowserApi.getPopularStations(limit);
+    return result.success ? result.data || [] : [];
   }
 
   /**
    * Get stations by genre
    */
   async getStationsByGenre(genre: string, limit = 20): Promise<RadioStation[]> {
-    try {
-      const result = await radioBrowserApi.getStationsByTag(genre, limit);
-      return result.success ? result.data || [] : [];
-    } catch (error) {
-      console.error('[SearchManager] Genre stations error:', error);
-      return [];
-    }
+    const result = await radioBrowserApi.getStationsByTag(genre, limit);
+    return result.success ? result.data || [] : [];
   }
 
   /**
@@ -579,98 +565,33 @@ export class SearchManager {
    * Check if any filters are active (have non-empty values)
    */
   private hasActiveFilters(filters: SearchFilters): boolean {
-    return !!(
-      filters.country ||
-      filters.genre ||
-      filters.language ||
-      filters.minBitrate
-    );
+    return !!(filters.country || filters.genre || filters.language || filters.minBitrate);
   }
 
   /**
    * Get available countries for filtering
    */
   async getAvailableCountries(): Promise<Array<{ name: string; stationcount: number }>> {
-    try {
-      const result = await radioBrowserApi.getCountries();
-      return result.success ? result.data || [] : [];
-    } catch (error) {
-      console.error('[SearchManager] Countries error:', error);
-      return [];
-    }
+    const result = await radioBrowserApi.getCountries();
+    return result.success ? result.data || [] : [];
   }
 
   /**
    * Get available genres for filtering
    */
   async getAvailableGenres(): Promise<Array<{ name: string; stationcount: number }>> {
-    try {
-      const result = await radioBrowserApi.getTags();
-      return result.success ? result.data || [] : [];
-    } catch (error) {
-      console.error('[SearchManager] Genres error:', error);
-      return [];
-    }
+    const result = await radioBrowserApi.getTags();
+    return result.success ? result.data || [] : [];
   }
 
   /**
    * Get available languages for filtering
    */
   async getAvailableLanguages(): Promise<Array<{ name: string; stationcount: number }>> {
-    try {
-      const result = await radioBrowserApi.getLanguages();
-      return result.success ? result.data || [] : [];
-    } catch (error) {
-      console.error('[SearchManager] Languages error:', error);
-      return [];
-    }
+    const result = await radioBrowserApi.getLanguages();
+    return result.success ? result.data || [] : [];
   }
 
-  /**
-   * Handle view change events - transfer preview to main player if switching away from search
-   */
-  private handleViewChange(data: { from: string; to: string }): void {
-    // Only handle when switching away from search view and we have an active preview
-    if (data.from === 'search' && data.to !== 'search' && this.currentPreviewStation && this.previewAudio && !this.previewAudio.paused) {
-      this.transferPreviewToMainPlayer();
-    }
-  }
-
-  /**
-   * Transfer current preview to main player
-   */
-  private transferPreviewToMainPlayer(): void {
-    if (!this.currentPreviewStation || !this.previewAudio) {
-      return;
-    }
-
-    const stationToTransfer = { ...this.currentPreviewStation };
-    const currentTime = this.previewAudio.currentTime || 0;
-
-    try {
-      // Stop the preview cleanly
-      this.stopPreview();
-
-      // Emit event to transfer to main player
-      eventManager.emit('search:transfer-to-main', {
-        station: stationToTransfer,
-        currentTime
-      });
-
-      eventManager.emit('notification:show', {
-        type: 'info',
-        message: `Transferred "${stationToTransfer.name}" to main player`,
-        duration: 3000
-      });
-
-    } catch (error) {
-      console.error('[SearchManager] Transfer error:', error);
-      eventManager.emit('notification:show', {
-        type: 'error',
-        message: 'Failed to transfer preview to main player'
-      });
-    }
-  }
 
   /**
    * Get current preview state
@@ -755,14 +676,14 @@ export class SearchManager {
     }
 
     // Remove event listeners
-    eventManager.off('search:execute', this.handleSearchExecute.bind(this));
-    eventManager.off('search:filter', this.handleFilterChange.bind(this));
-    eventManager.off('search:load-more', this.handleLoadMore.bind(this));
-    eventManager.off('search:clear', this.handleClearSearch.bind(this));
-    eventManager.off('search:preview', this.handlePreviewStation.bind(this));
-    eventManager.off('search:stop-preview', this.handleStopPreview.bind(this));
-    eventManager.off('station:play', this.handleMainPlayerStarted.bind(this));
-    eventManager.off('station:selected', this.handleMainPlayerStarted.bind(this));
-    // eventManager.off('view:change', this.handleViewChange.bind(this)); // Disabled to prevent loops
+    eventManager.off('search:execute', this.boundHandlers.searchExecute);
+    eventManager.off('search:filter', this.boundHandlers.filterChange);
+    eventManager.off('search:load-more', this.boundHandlers.loadMore);
+    eventManager.off('search:clear', this.boundHandlers.clearSearch);
+    eventManager.off('search:preview', this.boundHandlers.previewStation);
+    eventManager.off('search:stop-preview', this.boundHandlers.stopPreview);
+    eventManager.off('search:get-countries', this.boundHandlers.getCountries);
+    eventManager.off('search:get-genres', this.boundHandlers.getGenres);
+    eventManager.off('station:play', this.boundHandlers.mainPlayerStarted);
   }
 }

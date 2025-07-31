@@ -2,10 +2,9 @@
  * Settings view component for organized settings management
  */
 
-import { AppSettings } from '@/types/app';
 import { createElement, querySelector } from '@/utils/dom';
 import { eventManager } from '@/utils/events';
-import { getStorageItem, StorageKeys, clearAllStorage } from '@/utils/storage';
+import { clearAllStorage } from '@/utils/storage';
 
 export interface SettingsViewConfig {
   container?: HTMLElement;
@@ -22,15 +21,10 @@ export interface SettingSection {
 }
 
 export interface SettingItem {
-  id: keyof AppSettings | string;
+  id: string;
   label: string;
   description?: string;
-  type: 'toggle' | 'slider' | 'select' | 'button' | 'info' | 'info-with-links';
-  value?: any;
-  options?: { value: any; label: string }[];
-  min?: number;
-  max?: number;
-  step?: number;
+  type: 'button' | 'info' | 'info-with-links';
   action?: () => void;
 }
 
@@ -40,8 +34,8 @@ export interface SettingItem {
 export class SettingsView {
   private container: HTMLElement;
   private config: SettingsViewConfig;
-  private _settings!: AppSettings;
   private sections: SettingSection[] = [];
+  private eventListeners: Array<{ event: string; handler: (payload: any) => void }> = [];
 
   constructor(config: SettingsViewConfig = {}) {
     this.config = {
@@ -51,7 +45,6 @@ export class SettingsView {
     };
 
     this.container = config.container || this.createContainer();
-    this.loadSettings();
     this.createSections();
     this.render();
     this.setupEventListeners();
@@ -78,12 +71,6 @@ export class SettingsView {
     return container;
   }
 
-  /**
-   * Load current settings
-   */
-  private loadSettings(): void {
-    this.settings = getStorageItem(StorageKeys.SETTINGS, {});
-  }
 
   /**
    * Create settings sections configuration
@@ -186,13 +173,9 @@ export class SettingsView {
    */
   private renderHeader(): void {
     const header = createElement('div', { className: 'settings-header' });
-
-    const titleSection = createElement('div', { className: 'settings-title-section' });
     const title = createElement('h2', { className: 'settings-title' }, ['Settings']);
     
-    titleSection.appendChild(title);
-
-    header.appendChild(titleSection);
+    header.appendChild(title);
     this.container.appendChild(header);
   }
 
@@ -285,15 +268,6 @@ export class SettingsView {
 
     // Create appropriate control based on type
     switch (setting.type) {
-      case 'toggle':
-        this.createToggleControl(settingControl, setting);
-        break;
-      case 'slider':
-        this.createSliderControl(settingControl, setting);
-        break;
-      case 'select':
-        this.createSelectControl(settingControl, setting);
-        break;
       case 'button':
         this.createButtonControl(settingControl, setting);
         break;
@@ -310,76 +284,6 @@ export class SettingsView {
     return settingElement;
   }
 
-  /**
-   * Create toggle control
-   */
-  private createToggleControl(container: HTMLElement, setting: SettingItem): void {
-    const toggle = createElement('label', { className: 'settings-toggle' });
-    const input = createElement('input', {
-      type: 'checkbox',
-      checked: setting.value
-    }) as HTMLInputElement;
-    const slider = createElement('span', { className: 'settings-toggle-slider' });
-
-    input.addEventListener('change', () => {
-      this.updateSetting(setting.id as string, input.checked);
-    });
-
-    toggle.appendChild(input);
-    toggle.appendChild(slider);
-    container.appendChild(toggle);
-  }
-
-  /**
-   * Create slider control
-   */
-  private createSliderControl(container: HTMLElement, setting: SettingItem): void {
-    const sliderWrapper = createElement('div', { className: 'settings-slider-wrapper' });
-    
-    const slider = createElement('input', {
-      type: 'range',
-      className: 'settings-slider',
-      min: setting.min?.toString() || '0',
-      max: setting.max?.toString() || '100',
-      step: setting.step?.toString() || '1',
-      value: setting.value?.toString() || '0'
-    }) as HTMLInputElement;
-
-    const valueDisplay = createElement('span', { className: 'settings-slider-value' }, [
-      setting.value?.toString() || '0'
-    ]);
-
-    slider.addEventListener('input', () => {
-      const value = parseFloat(slider.value);
-      this.updateSetting(setting.id as string, value);
-      valueDisplay.textContent = value.toString();
-    });
-
-    sliderWrapper.appendChild(slider);
-    sliderWrapper.appendChild(valueDisplay);
-    container.appendChild(sliderWrapper);
-  }
-
-  /**
-   * Create select control
-   */
-  private createSelectControl(container: HTMLElement, setting: SettingItem): void {
-    const select = createElement('select', { className: 'settings-select' }) as HTMLSelectElement;
-    
-    setting.options?.forEach(option => {
-      const optionElement = createElement('option', {
-        value: option.value.toString(),
-        selected: option.value === setting.value
-      }, [option.label]);
-      select.appendChild(optionElement);
-    });
-
-    select.addEventListener('change', () => {
-      this.updateSetting(setting.id as string, select.value);
-    });
-
-    container.appendChild(select);
-  }
 
   /**
    * Create button control
@@ -401,7 +305,7 @@ export class SettingsView {
    */
   private createInfoControl(container: HTMLElement, setting: SettingItem): void {
     const info = createElement('span', { className: 'settings-info-value' }, [
-      setting.description || setting.value?.toString() || ''
+      setting.description || ''
     ]);
     container.appendChild(info);
   }
@@ -413,25 +317,31 @@ export class SettingsView {
     const infoText = setting.description || '';
     const info = createElement('span', { className: 'settings-info-value settings-info-with-links' });
     
-    // Parse the text and create clickable links
+    // Link patterns for replacement
+    const linkPatterns = [
+      {
+        text: 'Miles Gilbert',
+        url: 'https://www.milesgilbert.xyz'
+      },
+      {
+        text: 'Read more here',
+        url: 'https://milesgilbert.xyz/thinking/a-certification-for-algorithm-free-platforms/'
+      }
+    ];
+    
+    // Replace text patterns with clickable links
     let processedText = infoText;
-    
-    // Replace "Miles Gilbert" with a clickable link
-    processedText = processedText.replace(
-      'Miles Gilbert',
-      '<a href="#" data-link="https://www.milesgilbert.xyz" class="settings-link">Miles Gilbert</a>'
-    );
-    
-    // Replace "Read more here" with a clickable link
-    processedText = processedText.replace(
-      'Read more here',
-      '<a href="#" data-link="https://milesgilbert.xyz/thinking/a-certification-for-algorithm-free-platforms/" class="settings-link">Read more here</a>'
-    );
+    linkPatterns.forEach(({ text, url }) => {
+      processedText = processedText.replace(
+        text,
+        `<a href="#" data-link="${url}" class="settings-link">${text}</a>`
+      );
+    });
     
     info.innerHTML = processedText;
     
     // Add click event listeners to the links
-    info.addEventListener('click', (e) => {
+    info.addEventListener('click', (e: MouseEvent) => {
       const target = e.target as HTMLElement;
       if (target.classList.contains('settings-link')) {
         e.preventDefault();
@@ -445,13 +355,6 @@ export class SettingsView {
     container.appendChild(info);
   }
 
-  /**
-   * Update a setting value
-   */
-  private updateSetting(key: string, value: any): void {
-    // Settings are now always empty, but keeping method for potential future use
-    eventManager.emit('settings:update', { [key]: value });
-  }
 
   /**
    * Export all data
@@ -563,42 +466,31 @@ export class SettingsView {
    * Set up event listeners
    */
   private setupEventListeners(): void {
-    // Listen for settings updates
-    eventManager.on('settings:changed', (settings: AppSettings) => {
-      this.settings = settings;
-      this.updateSettingsDisplay();
-    });
-
-    // Listen for view changes
-    eventManager.on('view:changed', (data: { currentView: string }) => {
+    const viewChangeHandler = (data: { currentView: string }): void => {
       if (data.currentView === 'settings') {
         this.show();
       } else {
         this.hide();
       }
-    });
+    };
+
+    eventManager.on('view:changed', viewChangeHandler);
+    this.eventListeners.push({ event: 'view:changed', handler: viewChangeHandler });
   }
 
-  /**
-   * Update settings display with new values
-   */
-  private updateSettingsDisplay(): void {
-    // No settings to update since AppSettings is now empty
-    // This method is kept for potential future use
-  }
 
   /**
    * Show the settings view
    */
   show(): void {
-    // View visibility is controlled by body.view-settings class in CSS
+    this.container.style.display = 'block';
   }
 
   /**
    * Hide the settings view
    */
   hide(): void {
-    // View visibility is controlled by body class, nothing to do here
+    this.container.style.display = 'none';
   }
 
   /**
@@ -612,8 +504,10 @@ export class SettingsView {
    * Clean up resources
    */
   destroy(): void {
-    eventManager.removeAllListeners('settings:changed');
-    eventManager.removeAllListeners('view:changed');
+    this.eventListeners.forEach(({ event, handler }) => {
+      eventManager.off(event as any, handler as any);
+    });
+    this.eventListeners = [];
     this.container.remove();
   }
 }

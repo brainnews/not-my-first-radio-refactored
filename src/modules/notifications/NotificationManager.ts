@@ -3,7 +3,7 @@
  */
 
 import { Notification, NotificationType } from '@/types/app';
-import { createElement, querySelector } from '@/utils/dom';
+import { createElement } from '@/utils/dom';
 import { eventManager } from '@/utils/events';
 
 export interface NotificationManagerConfig {
@@ -17,11 +17,14 @@ export interface NotificationManagerConfig {
  * Manages toast notifications and alerts
  */
 export class NotificationManager {
+  private static readonly ANIMATION_DURATION = 300;
+  
   private container: HTMLElement;
   private notifications: Map<string, HTMLElement> = new Map();
+  private timeouts: Map<string, number> = new Map();
   private maxNotifications: number;
   private defaultDuration: number;
-  private position: string;
+  private position: NotificationManagerConfig['position'];
 
   constructor(config: NotificationManagerConfig = {}) {
     this.maxNotifications = config.maxNotifications || 5;
@@ -69,7 +72,7 @@ export class NotificationManager {
    * Generate unique notification ID
    */
   private generateId(): string {
-    return `notification_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `notification_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   }
 
   /**
@@ -82,16 +85,20 @@ export class NotificationManager {
     // Remove oldest notification if at max capacity
     if (this.notifications.size >= this.maxNotifications) {
       const oldestId = this.notifications.keys().next().value;
-      this.hide(oldestId);
+      if (oldestId) {
+        this.hide(oldestId);
+      }
     }
 
-    const notificationElement = this.createNotificationElement({
+    const completeNotification: Notification = {
       id,
       type: notification.type || 'info',
       message: notification.message || '',
       duration,
       action: notification.action
-    });
+    };
+
+    const notificationElement = this.createNotificationElement(completeNotification);
 
     this.container.appendChild(notificationElement);
     this.notifications.set(id, notificationElement);
@@ -103,9 +110,10 @@ export class NotificationManager {
 
     // Auto-hide after duration
     if (duration > 0) {
-      setTimeout(() => {
+      const timeoutId = window.setTimeout(() => {
         this.hide(id);
       }, duration);
+      this.timeouts.set(id, timeoutId);
     }
 
     eventManager.emit('notification:shown', { id, type: notification.type });
@@ -121,14 +129,19 @@ export class NotificationManager {
       return false;
     }
 
+    // Clear any pending timeout
+    const timeoutId = this.timeouts.get(notificationId);
+    if (timeoutId) {
+      window.clearTimeout(timeoutId);
+      this.timeouts.delete(notificationId);
+    }
+
     element.classList.add('notification-hide');
     
     setTimeout(() => {
-      if (element.parentNode) {
-        element.parentNode.removeChild(element);
-      }
+      element.remove();
       this.notifications.delete(notificationId);
-    }, 300); // Animation duration
+    }, NotificationManager.ANIMATION_DURATION);
 
     eventManager.emit('notification:hidden', notificationId);
     return true;
@@ -211,20 +224,30 @@ export class NotificationManager {
   /**
    * Convenience methods for different notification types
    */
+  private showTypedNotification(
+    type: NotificationType, 
+    message: string, 
+    duration?: number, 
+    action?: Notification['action']
+  ): string {
+    const finalDuration = type === 'error' ? (duration ?? 0) : duration;
+    return this.show({ type, message, duration: finalDuration, action });
+  }
+
   success(message: string, duration?: number, action?: Notification['action']): string {
-    return this.show({ type: 'success', message, duration, action });
+    return this.showTypedNotification('success', message, duration, action);
   }
 
   error(message: string, duration?: number, action?: Notification['action']): string {
-    return this.show({ type: 'error', message, duration: duration ?? 0, action }); // Errors don't auto-hide
+    return this.showTypedNotification('error', message, duration, action);
   }
 
   warning(message: string, duration?: number, action?: Notification['action']): string {
-    return this.show({ type: 'warning', message, duration, action });
+    return this.showTypedNotification('warning', message, duration, action);
   }
 
   info(message: string, duration?: number, action?: Notification['action']): string {
-    return this.show({ type: 'info', message, duration, action });
+    return this.showTypedNotification('info', message, duration, action);
   }
 
   /**
@@ -245,10 +268,12 @@ export class NotificationManager {
    * Clean up resources
    */
   destroy(): void {
+    // Clear all timeouts
+    this.timeouts.forEach(timeoutId => window.clearTimeout(timeoutId));
+    this.timeouts.clear();
+    
     this.clearAll();
-    if (this.container.parentNode) {
-      this.container.parentNode.removeChild(this.container);
-    }
+    this.container.remove();
     
     eventManager.removeAllListeners('notification:show');
     eventManager.removeAllListeners('notification:hide');

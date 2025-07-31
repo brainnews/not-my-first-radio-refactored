@@ -71,6 +71,24 @@ function isValidFaviconUrl(url: string): boolean {
 }
 
 /**
+ * Equalizer SVG for now playing indicator
+ */
+const EQUALIZER_SVG = `
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M3 14V15H1V14H3Z M3 13V14H1V13H3Z M3 12V13H1V12H3Z M3 11V12H1V11H3Z M3 10V11H1V10H3Z M3 9V10H1V9H3Z M3 8V9H1V8H3Z M3 7V8H1V7H3Z M3 6V7H1V6H3Z M3 5V6H1V5H3Z M3 4V5H1V4H3Z M3 3V4H1V3H3Z M3 2V3H1V2H3Z" fill="#00FFA2"/>
+    <path d="M6 14V15H4V14H6Z M6 13V14H4V13H6Z M6 12V13H4V12H6Z M6 11V12H4V11H6Z M6 10V11H4V10H6Z M6 9V10H4V9H6Z M6 8V9H4V8H6Z M6 7V8H4V7H6Z M6 6V7H4V6H6Z M6 5V6H4V5H6Z M6 4V5H4V4H6Z M6 3V4H4V3H6Z M6 2V3H4V2H6Z" fill="#00FFA2"/>
+    <path d="M9 14V15H7V14H9Z M9 13V14H7V13H9Z M9 12V13H7V12H9Z M9 11V12H7V11H9Z M9 10V11H7V10H9Z M9 9V10H7V9H9Z M9 8V9H7V8H9Z M9 7V8H7V7H9Z M9 6V7H7V6H9Z M9 5V6H7V5H9Z M9 4V5H7V4H9Z M9 3V4H7V3H9Z M9 2V3H7V2H9Z" fill="#00FFA2"/>
+    <path d="M12 14V15H10V14H12Z M12 13V14H10V13H12Z M12 12V13H10V12H12Z M12 11V12H10V11H12Z M12 10V11H10V10H12Z M12 9V10H10V9H12Z M12 8V9H10V8H12Z M12 7V8H10V7H12Z M12 6V7H10V6H12Z M12 5V6H10V5H12Z M12 4V5H10V4H12Z M12 3V4H10V3H12Z M12 2V3H10V2H12Z" fill="#00FFA2"/>
+    <path d="M15 14V15H13V14H15Z M15 13V14H13V13H15Z M15 12V13H13V12H15Z M15 11V12H13V11H15Z M15 10V11H13V10H15Z M15 9V10H13V9H15Z M15 8V9H13V8H15Z M15 7V8H13V7H15Z M15 6V7H13V6H15Z M15 5V6H13V5H15Z M15 4V5H13V4H15Z M15 3V4H13V3H12Z M15 2V3H13V2H15Z" fill="#00FFA2"/>
+    <path d="M3 1V2H1V1H3Z" fill="#9E66F2"/>
+    <path d="M6 1V2H4V1H6Z" fill="#9E66F2"/>
+    <path d="M9 1V2H7V1H9Z" fill="#9E66F2"/>
+    <path d="M12 1V2H10V1H12Z" fill="#9E66F2"/>
+    <path d="M15 1V2H13V1H15Z" fill="#9E66F2"/>
+  </svg>
+`;
+
+/**
  * Manages user stations and station display
  */
 export class StationManager {
@@ -84,7 +102,6 @@ export class StationManager {
   private filterQuery: string = '';
   private debouncedFilter: (query: string) => void;
   private debouncedFilterInContainer: (container: HTMLElement) => void;
-  private delegationContext: string | null = null;
   private shuffleHistory: string[] = []; // Track last 5 shuffled station UUIDs
 
   constructor(config: StationManagerConfig = {}) {
@@ -103,24 +120,85 @@ export class StationManager {
   }
 
   /**
+   * Create favicon element with fallback to initials image
+   */
+  private createFaviconElement(station: LocalStation, size: number = 48): HTMLElement {
+    const faviconContainer = createElement('div', { className: 'station-favicon' });
+    
+    if (station.favicon && isValidFaviconUrl(station.favicon)) {
+      const favicon = createElement('img', {
+        src: station.favicon,
+        alt: 'Station logo'
+      });
+      
+      favicon.addEventListener('error', () => {
+        const initialsImg = createStationInitialsImage(station.customName || station.name, size);
+        faviconContainer.innerHTML = '';
+        faviconContainer.appendChild(initialsImg);
+      });
+      
+      faviconContainer.appendChild(favicon);
+    } else {
+      faviconContainer.innerHTML = '';
+      const initialsImg = createStationInitialsImage(station.customName || station.name, size);
+      faviconContainer.appendChild(initialsImg);
+    }
+    
+    return faviconContainer;
+  }
+
+  /**
+   * Build preset menu items for station menu
+   */
+  private buildPresetMenuItems(station: LocalStation, menu: HTMLElement, overlay?: HTMLElement): void {
+    const availableSlots = this.getAvailablePresetSlots();
+    const currentPresetSlot = station.presetSlot;
+    const menuOverlay = overlay || menu.previousElementSibling as HTMLElement;
+    
+    if (currentPresetSlot) {
+      // Station is already a preset - show remove option
+      const removePresetBtn = createElement('button', { className: 'menu-remove-preset' });
+      removePresetBtn.innerHTML = `<span class="material-symbols-rounded">radio</span> Remove from Preset ${currentPresetSlot}`;
+      removePresetBtn.addEventListener('click', (e) => this.handleMenuAction(e, menu, menuOverlay, 'remove-preset', station));
+      menu.appendChild(removePresetBtn);
+    } else if (availableSlots.length > 0) {
+      // Station can be added to presets - show available slots
+      const presetHeader = createElement('div', { className: 'menu-preset-header' }, ['Add to Preset:']);
+      menu.appendChild(presetHeader);
+      
+      availableSlots.slice(0, 3).forEach(slot => { // Show max 3 slots to avoid long menu
+        const addPresetBtn = createElement('button', { className: 'menu-add-preset' });
+        addPresetBtn.innerHTML = `<span class="material-symbols-rounded">radio</span> Preset ${slot}`;
+        addPresetBtn.addEventListener('click', (e) => this.handleMenuAction(e, menu, menuOverlay, 'add-preset', station, undefined, slot));
+        menu.appendChild(addPresetBtn);
+      });
+      
+      if (availableSlots.length > 3) {
+        const morePresetsBtn = createElement('button', { className: 'menu-more-presets' });
+        morePresetsBtn.innerHTML = `<span class="material-symbols-rounded">more_horiz</span> More preset slots...`;
+        morePresetsBtn.addEventListener('click', (e) => this.handleMenuAction(e, menu, menuOverlay, 'show-all-presets', station));
+        menu.appendChild(morePresetsBtn);
+      }
+    } else {
+      // No preset slots available
+      const noSlotsBtn = createElement('div', { className: 'menu-preset-disabled' });
+      noSlotsBtn.innerHTML = '<span class="material-symbols-rounded">radio_button_unchecked</span> All presets filled';
+      noSlotsBtn.style.opacity = '0.5';
+      noSlotsBtn.style.cursor = 'not-allowed';
+      menu.appendChild(noSlotsBtn);
+    }
+  }
+
+  /**
    * Load stations from storage
    */
-  private loadStations(): void {
+  loadStations(): void {
     this.stations = getStorageItem(StorageKeys.STATIONS, []);
     this.migrateOldStations();
     this.updateStationsWithListeningTimes();
     eventManager.emit('stations:loaded', this.stations);
   }
 
-  /**
-   * Reload stations from storage (public method for external use)
-   */
-  reloadStationsFromStorage(): void {
-    this.stations = getStorageItem(StorageKeys.STATIONS, []);
-    this.migrateOldStations();
-    this.updateStationsWithListeningTimes();
-    eventManager.emit('stations:loaded', this.stations);
-  }
 
 
   /**
@@ -159,7 +237,7 @@ export class StationManager {
    */
   private migratePinnedToPresets(): void {
     // Check if migration has already been done
-    const migrationKey = 'pinned-to-presets-migration-v1';
+    const migrationKey = 'pinned-to-presets-migration-v1' as any; // Custom migration key
     const migrationDone = getStorageItem(migrationKey, false);
     
     if (migrationDone) {
@@ -191,7 +269,7 @@ export class StationManager {
     }
     
     // Mark migration as complete
-    setStorageItem(migrationKey, true);
+    setStorageItem(migrationKey as any, true);
   }
 
   /**
@@ -889,16 +967,7 @@ export class StationManager {
       
       const clearLink = noResults.querySelector('.clear-filter-link') as HTMLButtonElement;
       clearLink.addEventListener('click', () => {
-        this.filterQuery = '';
-        const filterInput = stationsGrid.closest('.station-section')?.querySelector('.filter-input') as HTMLInputElement;
-        if (filterInput) {
-          filterInput.value = '';
-          filterInput.focus();
-        }
-        // Re-update the grid
-        const filteredStations = this.filterStations(this.stations);
-        const sortedStations = this.sortStations(filteredStations);
-        this.updateStationsGrid(stationsGrid, sortedStations);
+        this.clearFilterWithUI(stationsGrid.closest('.station-section') as HTMLElement);
       });
       
       stationsGrid.appendChild(noResults);
@@ -924,6 +993,32 @@ export class StationManager {
   clearFilter(): void {
     this.filterQuery = '';
     this.renderStationsGrid();
+  }
+
+  /**
+   * Clear filter with UI updates for input and focus
+   */
+  private clearFilterWithUI(container: HTMLElement): void {
+    this.filterQuery = '';
+    const filterInput = container.querySelector('.filter-input') as HTMLInputElement;
+    const clearFilterBtn = container.querySelector('.clear-filter-btn') as HTMLButtonElement;
+    
+    if (filterInput) {
+      filterInput.value = '';
+      filterInput.focus();
+    }
+    
+    if (clearFilterBtn) {
+      clearFilterBtn.classList.add('hidden');
+    }
+    
+    // Update the stations grid within the current container context
+    const stationsGrid = container.querySelector('.stations-grid');
+    if (stationsGrid) {
+      const filteredStations = this.filterStations(this.stations);
+      const sortedStations = this.sortStations(filteredStations);
+      this.updateStationsGrid(stationsGrid as HTMLElement, sortedStations);
+    }
   }
 
   /**
@@ -956,12 +1051,7 @@ export class StationManager {
       
       const clearLink = noResults.querySelector('.clear-filter-link') as HTMLButtonElement;
       clearLink.addEventListener('click', () => {
-        this.clearFilter();
-        const filterInput = this.container.querySelector('.filter-input') as HTMLInputElement;
-        if (filterInput) {
-          filterInput.value = '';
-          filterInput.focus();
-        }
+        this.clearFilterWithUI(this.container);
       });
       
       existingStationsGrid.appendChild(noResults);
@@ -1027,7 +1117,6 @@ export class StationManager {
     }
 
     // Set delegation context and temporarily switch container
-    this.delegationContext = containerId;
     const originalContainer = this.container;
     this.container = targetContainer;
 
@@ -1042,9 +1131,8 @@ export class StationManager {
       this.renderStationSectionWithSort('All Stations', sortedStations);
     }
 
-    // Restore original container and clear delegation context
+    // Restore original container
     this.container = originalContainer;
-    this.delegationContext = null;
   }
 
   /**
@@ -1138,14 +1226,12 @@ export class StationManager {
     ]);
     
     // Settings import message
-    const importMessage = createElement('p', {
-      style: 'color: var(--text-secondary);'
-    });
+    const importMessage = createElement('p', {});
+    importMessage.style.color = 'var(--text-secondary)';
     
     const settingsBtn = createElement('button', {
       className: 'settings-btn',
-      id: 'empty-state-settings',
-      style: 'display: inline; width: auto;'
+      id: 'empty-state-settings'
     }, [
       createElement('span', { className: 'material-symbols-rounded' }, ['settings']),
       'Settings'
@@ -1362,7 +1448,7 @@ export class StationManager {
     section.appendChild(presetsGrid);
     
     // Check if section should be collapsed
-    const sectionStates = getStorageItem(StorageKeys.SECTION_STATES, {});
+    const sectionStates = getStorageItem(StorageKeys.SECTION_STATES, {} as Record<string, boolean>);
     if (sectionStates['presets']) {
       section.classList.add('collapsed');
       icon.textContent = 'expand_more';
@@ -1384,26 +1470,8 @@ export class StationManager {
       // Add context menu and hover functionality for filled presets
       this.addPresetTileInteractions(tile, slot, station);
       // Station favicon
-      const faviconContainer = createElement('div', { className: 'preset-favicon' });
-      
-      if (station.favicon && isValidFaviconUrl(station.favicon)) {
-        const favicon = createElement('img', {
-          src: station.favicon,
-          alt: 'Station logo'
-        });
-        
-        favicon.addEventListener('error', () => {
-          const initialsImg = createStationInitialsImage(station.customName || station.name, 48);
-          faviconContainer.innerHTML = '';
-          faviconContainer.appendChild(initialsImg);
-        });
-        
-        faviconContainer.appendChild(favicon);
-      } else {
-        faviconContainer.innerHTML = ''; // Clear existing content first
-        const initialsImg = createStationInitialsImage(station.customName || station.name, 48);
-        faviconContainer.appendChild(initialsImg);
-      }
+      const faviconContainer = this.createFaviconElement(station, 48);
+      faviconContainer.className = 'preset-favicon';
       
       tile.appendChild(faviconContainer);
       
@@ -1497,7 +1565,7 @@ export class StationManager {
       }, 500); // 500ms long press
     });
 
-    tile.addEventListener('touchend', (e) => {
+    tile.addEventListener('touchend', (_e) => {
       clearTimeout(longPressTimer);
       
       // Always hide overlay on touch end to prevent sticky states
@@ -1546,7 +1614,7 @@ export class StationManager {
   /**
    * Show context menu for preset tiles
    */
-  private showPresetContextMenu(event: MouseEvent, tile: HTMLElement, slot: number, station: LocalStation): void {
+  private showPresetContextMenu(event: MouseEvent, _tile: HTMLElement, slot: number, station: LocalStation): void {
     // Remove any existing context menus
     document.querySelectorAll('.preset-context-menu').forEach(menu => menu.remove());
 
@@ -1737,18 +1805,7 @@ export class StationManager {
 
     // Handle clear filter button
     clearFilterBtn.addEventListener('click', () => {
-      this.filterQuery = '';
-      filterInput.value = '';
-      clearFilterBtn.classList.add('hidden');
-      filterInput.focus();
-      
-      // Update the stations grid within the current container context
-      const stationsGrid = currentContainer.querySelector('.stations-grid');
-      if (stationsGrid) {
-        const filteredStations = this.filterStations(this.stations);
-        const sortedStations = this.sortStations(filteredStations);
-        this.updateStationsGrid(stationsGrid as HTMLElement, sortedStations);
-      }
+      this.clearFilterWithUI(currentContainer);
     });
     
     sortContainer.appendChild(sortLabel);
@@ -1774,19 +1831,7 @@ export class StationManager {
       
       const clearLink = noResults.querySelector('.clear-filter-link') as HTMLButtonElement;
       clearLink.addEventListener('click', () => {
-        this.filterQuery = '';
-        const filterInput = section.querySelector('.filter-input') as HTMLInputElement;
-        if (filterInput) {
-          filterInput.value = '';
-          filterInput.focus();
-        }
-        // Re-update the grid within the current context
-        const stationsGrid = currentContainer.querySelector('.stations-grid');
-        if (stationsGrid) {
-          const filteredStations = this.filterStations(this.stations);
-          const sortedStations = this.sortStations(filteredStations);
-          this.updateStationsGrid(stationsGrid as HTMLElement, sortedStations);
-        }
+        this.clearFilterWithUI(currentContainer);
       });
       
       grid.appendChild(noResults);
@@ -1820,7 +1865,7 @@ export class StationManager {
     }
     
     // Save state to localStorage
-    const sectionStates = getStorageItem(StorageKeys.SECTION_STATES, {});
+    const sectionStates = getStorageItem(StorageKeys.SECTION_STATES, {} as Record<string, boolean>);
     sectionStates[sectionId] = !isCollapsed;
     setStorageItem(StorageKeys.SECTION_STATES, sectionStates);
   }
@@ -1839,26 +1884,7 @@ export class StationManager {
     const stationInfo = createElement('div', { className: 'station-info' });
 
     // Station favicon
-    const faviconContainer = createElement('div', { className: 'station-favicon' });
-    
-    if (station.favicon && isValidFaviconUrl(station.favicon)) {
-      const favicon = createElement('img', {
-        src: station.favicon,
-        alt: 'Station logo'
-      });
-      
-      favicon.addEventListener('error', () => {
-        const initialsImg = createStationInitialsImage(station.customName || station.name, 48);
-        faviconContainer.innerHTML = '';
-        faviconContainer.appendChild(initialsImg);
-      });
-      
-      faviconContainer.appendChild(favicon);
-    } else {
-      faviconContainer.innerHTML = ''; // Clear existing content first
-      const initialsImg = createStationInitialsImage(station.customName || station.name, 48);
-      faviconContainer.appendChild(initialsImg);
-    }
+    const faviconContainer = this.createFaviconElement(station, 48);
 
     // Add preset number label if station is a preset
     if (station.presetSlot) {
@@ -1893,20 +1919,7 @@ export class StationManager {
         className: 'now-playing-icon',
         title: 'Now playing'
       });
-      equalizerIcon.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M3 14V15H1V14H3Z M3 13V14H1V13H3Z M3 12V13H1V12H3Z M3 11V12H1V11H3Z M3 10V11H1V10H3Z M3 9V10H1V9H3Z M3 8V9H1V8H3Z M3 7V8H1V7H3Z M3 6V7H1V6H3Z M3 5V6H1V5H3Z M3 4V5H1V4H3Z M3 3V4H1V3H3Z M3 2V3H1V2H3Z" fill="#00FFA2"/>
-          <path d="M6 14V15H4V14H6Z M6 13V14H4V13H6Z M6 12V13H4V12H6Z M6 11V12H4V11H6Z M6 10V11H4V10H6Z M6 9V10H4V9H6Z M6 8V9H4V8H6Z M6 7V8H4V7H6Z M6 6V7H4V6H6Z M6 5V6H4V5H6Z M6 4V5H4V4H6Z M6 3V4H4V3H6Z M6 2V3H4V2H6Z" fill="#00FFA2"/>
-          <path d="M9 14V15H7V14H9Z M9 13V14H7V13H9Z M9 12V13H7V12H9Z M9 11V12H7V11H9Z M9 10V11H7V10H9Z M9 9V10H7V9H9Z M9 8V9H7V8H9Z M9 7V8H7V7H9Z M9 6V7H7V6H9Z M9 5V6H7V5H9Z M9 4V5H7V4H9Z M9 3V4H7V3H9Z M9 2V3H7V2H9Z" fill="#00FFA2"/>
-          <path d="M12 14V15H10V14H12Z M12 13V14H10V13H12Z M12 12V13H10V12H12Z M12 11V12H10V11H12Z M12 10V11H10V10H12Z M12 9V10H10V9H12Z M12 8V9H10V8H12Z M12 7V8H10V7H12Z M12 6V7H10V6H12Z M12 5V6H10V5H12Z M12 4V5H10V4H12Z M12 3V4H10V3H12Z M12 2V3H10V2H12Z" fill="#00FFA2"/>
-          <path d="M15 14V15H13V14H15Z M15 13V14H13V13H15Z M15 12V13H13V12H15Z M15 11V12H13V11H15Z M15 10V11H13V10H15Z M15 9V10H13V9H15Z M15 8V9H13V8H15Z M15 7V8H13V7H15Z M15 6V7H13V6H15Z M15 5V6H13V5H15Z M15 4V5H13V4H15Z M15 3V4H13V3H15Z M15 2V3H13V2H15Z" fill="#00FFA2"/>
-          <path d="M3 1V2H1V1H3Z" fill="#9E66F2"/>
-          <path d="M6 1V2H4V1H6Z" fill="#9E66F2"/>
-          <path d="M9 1V2H7V1H9Z" fill="#9E66F2"/>
-          <path d="M12 1V2H10V1H12Z" fill="#9E66F2"/>
-          <path d="M15 1V2H13V1H15Z" fill="#9E66F2"/>
-        </svg>
-      `;
+      equalizerIcon.innerHTML = EQUALIZER_SVG;
       stationNameContainer.appendChild(equalizerIcon);
     }
     
@@ -2034,24 +2047,8 @@ export class StationManager {
     const menuInfo = createElement('div', { className: 'station-menu-info' });
     
     // Menu favicon
-    const menuFavicon = createElement('div', { 
-      className: 'station-menu-favicon',
-      style: station.favicon && isValidFaviconUrl(station.favicon) ? 'display: flex;' : 'display: none;'
-    });
-    if (station.favicon && isValidFaviconUrl(station.favicon)) {
-      const faviconImg = createElement('img', {
-        src: station.favicon,
-        alt: `${station.name} logo`
-      });
-      
-      faviconImg.addEventListener('error', () => {
-        const initialsImg = createStationInitialsImage(station.customName || station.name, 32);
-        menuFavicon.innerHTML = '';
-        menuFavicon.appendChild(initialsImg);
-      });
-      
-      menuFavicon.appendChild(faviconImg);
-    }
+    const menuFavicon = this.createFaviconElement(station, 32);
+    menuFavicon.className = 'station-menu-favicon';
     menuInfo.appendChild(menuFavicon);
 
     // Menu station name
@@ -2106,41 +2103,7 @@ export class StationManager {
 
 
     // Preset menu items
-    const availableSlots = this.getAvailablePresetSlots();
-    const currentPresetSlot = station.presetSlot;
-    
-    if (currentPresetSlot) {
-      // Station is already a preset - show remove option
-      const removePresetBtn = createElement('button', { className: 'menu-remove-preset' });
-      removePresetBtn.innerHTML = `<span class="material-symbols-rounded">radio</span> Remove from Preset ${currentPresetSlot}`;
-      removePresetBtn.addEventListener('click', (e) => this.handleMenuAction(e, menu, menuOverlay, 'remove-preset', station));
-      menu.appendChild(removePresetBtn);
-    } else if (availableSlots.length > 0) {
-      // Station can be added to presets - show available slots
-      const presetHeader = createElement('div', { className: 'menu-preset-header' }, ['Add to Preset:']);
-      menu.appendChild(presetHeader);
-      
-      availableSlots.slice(0, 3).forEach(slot => { // Show max 3 slots to avoid long menu
-        const addPresetBtn = createElement('button', { className: 'menu-add-preset' });
-        addPresetBtn.innerHTML = `<span class="material-symbols-rounded">radio</span> Preset ${slot}`;
-        addPresetBtn.addEventListener('click', (e) => this.handleMenuAction(e, menu, menuOverlay, 'add-preset', station, undefined, slot));
-        menu.appendChild(addPresetBtn);
-      });
-      
-      if (availableSlots.length > 3) {
-        const morePresetsBtn = createElement('button', { className: 'menu-more-presets' });
-        morePresetsBtn.innerHTML = `<span class="material-symbols-rounded">more_horiz</span> More preset slots...`;
-        morePresetsBtn.addEventListener('click', (e) => this.handleMenuAction(e, menu, menuOverlay, 'show-all-presets', station));
-        menu.appendChild(morePresetsBtn);
-      }
-    } else {
-      // No preset slots available
-      const noSlotsBtn = createElement('div', { className: 'menu-preset-disabled' });
-      noSlotsBtn.innerHTML = '<span class="material-symbols-rounded">radio_button_unchecked</span> All presets filled';
-      noSlotsBtn.style.opacity = '0.5';
-      noSlotsBtn.style.cursor = 'not-allowed';
-      menu.appendChild(noSlotsBtn);
-    }
+    this.buildPresetMenuItems(station, menu, menuOverlay);
 
     card.appendChild(menuOverlay);
     card.appendChild(menu);
@@ -2151,42 +2114,8 @@ export class StationManager {
       const existingPresetItems = menu.querySelectorAll('.menu-remove-preset, .menu-add-preset, .menu-more-presets, .menu-preset-disabled, .menu-preset-header');
       existingPresetItems.forEach(item => item.remove());
 
-      // Get current available slots and preset status
-      const availableSlots = this.getAvailablePresetSlots();
-      const currentPresetSlot = station.presetSlot;
-      
-      if (currentPresetSlot) {
-        // Station is already a preset - show remove option
-        const removePresetBtn = createElement('button', { className: 'menu-remove-preset' });
-        removePresetBtn.innerHTML = `<span class="material-symbols-rounded">radio</span> Remove from Preset ${currentPresetSlot}`;
-        removePresetBtn.addEventListener('click', (e) => this.handleMenuAction(e, menu, menuOverlay, 'remove-preset', station));
-        menu.appendChild(removePresetBtn);
-      } else if (availableSlots.length > 0) {
-        // Station can be added to presets - show available slots
-        const presetHeader = createElement('div', { className: 'menu-preset-header' }, ['Add to Preset:']);
-        menu.appendChild(presetHeader);
-        
-        availableSlots.slice(0, 3).forEach(slot => { // Show max 3 slots to avoid long menu
-          const addPresetBtn = createElement('button', { className: 'menu-add-preset' });
-          addPresetBtn.innerHTML = `<span class="material-symbols-rounded">radio</span> Preset ${slot}`;
-          addPresetBtn.addEventListener('click', (e) => this.handleMenuAction(e, menu, menuOverlay, 'add-preset', station, undefined, slot));
-          menu.appendChild(addPresetBtn);
-        });
-        
-        if (availableSlots.length > 3) {
-          const morePresetsBtn = createElement('button', { className: 'menu-more-presets' });
-          morePresetsBtn.innerHTML = `<span class="material-symbols-rounded">more_horiz</span> More preset slots...`;
-          morePresetsBtn.addEventListener('click', (e) => this.handleMenuAction(e, menu, menuOverlay, 'show-all-presets', station));
-          menu.appendChild(morePresetsBtn);
-        }
-      } else {
-        // No preset slots available
-        const noSlotsBtn = createElement('div', { className: 'menu-preset-disabled' });
-        noSlotsBtn.innerHTML = '<span class="material-symbols-rounded">radio_button_unchecked</span> All presets filled';
-        noSlotsBtn.style.opacity = '0.5';
-        noSlotsBtn.style.cursor = 'not-allowed';
-        menu.appendChild(noSlotsBtn);
-      }
+      // Rebuild preset menu items
+      this.buildPresetMenuItems(station, menu);
     };
 
     // Menu button event handlers with scroll detection
@@ -2682,20 +2611,7 @@ export class StationManager {
               className: 'now-playing-icon',
               title: 'Now playing'
             });
-            equalizerIcon.innerHTML = `
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3 14V15H1V14H3Z M3 13V14H1V13H3Z M3 12V13H1V12H3Z M3 11V12H1V11H3Z M3 10V11H1V10H3Z M3 9V10H1V9H3Z M3 8V9H1V8H3Z M3 7V8H1V7H3Z M3 6V7H1V6H3Z M3 5V6H1V5H3Z M3 4V5H1V4H3Z M3 3V4H1V3H3Z M3 2V3H1V2H3Z" fill="#00FFA2"/>
-                <path d="M6 14V15H4V14H6Z M6 13V14H4V13H6Z M6 12V13H4V12H6Z M6 11V12H4V11H6Z M6 10V11H4V10H6Z M6 9V10H4V9H6Z M6 8V9H4V8H6Z M6 7V8H4V7H6Z M6 6V7H4V6H6Z M6 5V6H4V5H6Z M6 4V5H4V4H6Z M6 3V4H4V3H6Z M6 2V3H4V2H6Z" fill="#00FFA2"/>
-                <path d="M9 14V15H7V14H9Z M9 13V14H7V13H9Z M9 12V13H7V12H9Z M9 11V12H7V11H9Z M9 10V11H7V10H9Z M9 9V10H7V9H9Z M9 8V9H7V8H9Z M9 7V8H7V7H9Z M9 6V7H7V6H9Z M9 5V6H7V5H9Z M9 4V5H7V4H9Z M9 3V4H7V3H9Z M9 2V3H7V2H9Z" fill="#00FFA2"/>
-                <path d="M12 14V15H10V14H12Z M12 13V14H10V13H12Z M12 12V13H10V12H12Z M12 11V12H10V11H12Z M12 10V11H10V10H12Z M12 9V10H10V9H12Z M12 8V9H10V8H12Z M12 7V8H10V7H12Z M12 6V7H10V6H12Z M12 5V6H10V5H12Z M12 4V5H10V4H12Z M12 3V4H10V3H12Z M12 2V3H10V2H12Z" fill="#00FFA2"/>
-                <path d="M15 14V15H13V14H15Z M15 13V14H13V13H15Z M15 12V13H13V12H15Z M15 11V12H13V11H15Z M15 10V11H13V10H15Z M15 9V10H13V9H15Z M15 8V9H13V8H15Z M15 7V8H13V7H15Z M15 6V7H13V6H15Z M15 5V6H13V5H15Z M15 4V5H13V4H15Z M15 3V4H13V3H15Z M15 2V3H13V2H15Z" fill="#00FFA2"/>
-                <path d="M3 1V2H1V1H3Z" fill="#9E66F2"/>
-                <path d="M6 1V2H4V1H6Z" fill="#9E66F2"/>
-                <path d="M9 1V2H7V1H9Z" fill="#9E66F2"/>
-                <path d="M12 1V2H10V1H12Z" fill="#9E66F2"/>
-                <path d="M15 1V2H13V1H15Z" fill="#9E66F2"/>
-              </svg>
-            `;
+            equalizerIcon.innerHTML = EQUALIZER_SVG;
             // Insert before pin indicator if it exists
             const pinIndicator = stationNameContainer.querySelector('.pin-indicator');
             if (pinIndicator) {
@@ -2751,12 +2667,6 @@ export class StationManager {
     });
   }
 
-  /**
-   * Get all stations (alias for getAllStations for consistency)
-   */
-  getStations(): LocalStation[] {
-    return this.getAllStations();
-  }
 
   /**
    * Share multiple stations as a collection

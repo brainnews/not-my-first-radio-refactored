@@ -3,7 +3,7 @@
  */
 
 import { ModalType, ModalState } from '@/types/app';
-import { createElement, querySelector, addEventListenerWithCleanup } from '@/utils/dom';
+import { createElement, addEventListenerWithCleanup } from '@/utils/dom';
 import { eventManager } from '@/utils/events';
 
 export interface ModalManagerConfig {
@@ -36,6 +36,7 @@ export class ModalManager {
   private modalState: ModalState;
   private config: ModalManagerConfig;
   private cleanupFunctions: (() => void)[] = [];
+  private modalCleanupFunctions: (() => void)[] = [];
   private bodyScrollPosition: number = 0;
 
   constructor(config: ModalManagerConfig = {}) {
@@ -142,11 +143,18 @@ export class ModalManager {
 
     const modalType = this.modalState.type;
 
+    // Clean up modal-specific event listeners
+    this.modalCleanupFunctions.forEach(cleanup => cleanup());
+    this.modalCleanupFunctions = [];
+
     // Trigger close animation
     this.currentModal.classList.add('modal-hide');
 
-    setTimeout(() => {
+    // Use animation events for better performance
+    const handleAnimationEnd = () => {
       if (this.currentModal && this.currentModal.parentNode) {
+        this.currentModal.removeEventListener('animationend', handleAnimationEnd);
+        this.currentModal.removeEventListener('transitionend', handleAnimationEnd);
         this.currentModal.parentNode.removeChild(this.currentModal);
       }
       this.currentModal = null;
@@ -167,7 +175,14 @@ export class ModalManager {
       };
 
       eventManager.emit('modal:closed', modalType);
-    }, 300); // Animation duration
+    };
+
+    // Listen for both animation and transition end events
+    this.currentModal.addEventListener('animationend', handleAnimationEnd);
+    this.currentModal.addEventListener('transitionend', handleAnimationEnd);
+    
+    // Fallback timeout in case animation events don't fire
+    setTimeout(handleAnimationEnd, 350);
   }
 
   /**
@@ -270,12 +285,19 @@ export class ModalManager {
       }
     });
 
-    this.cleanupFunctions.push(cleanup);
+    this.modalCleanupFunctions.push(cleanup);
   }
 
   /**
    * Convenience methods for common modal types
    */
+
+  /**
+   * Create simple text content element
+   */
+  private createTextContent(message: string): HTMLElement {
+    return createElement('p', {}, [message]);
+  }
 
   /**
    * Show confirmation dialog
@@ -286,12 +308,10 @@ export class ModalManager {
     onConfirm: () => void | Promise<void>,
     onCancel?: () => void
   ): void {
-    const content = createElement('p', {}, [message]);
-    
     this.open({
       type: 'confirmation',
       title,
-      content,
+      content: this.createTextContent(message),
       size: 'small',
       actions: [
         {
@@ -312,12 +332,10 @@ export class ModalManager {
    * Show alert dialog
    */
   alert(title: string, message: string, onOk?: () => void): void {
-    const content = createElement('p', {}, [message]);
-    
     this.open({
-      type: 'confirmation',
+      type: 'alert',
       title,
-      content,
+      content: this.createTextContent(message),
       size: 'small',
       actions: [
         {
@@ -374,71 +392,67 @@ export class ModalManager {
    */
   private createAddStationForm(onAdd: (stationData: any) => void): HTMLElement {
     const form = createElement('form', { className: 'add-station-form' });
+    const inputs: { [key: string]: HTMLInputElement } = {};
 
-    // Station URL field
-    const urlGroup = createElement('div', { className: 'form-group' });
-    const urlLabel = createElement('label', {}, ['Stream URL *']);
-    const urlInput = createElement('input', {
-      type: 'url',
-      required: true,
-      placeholder: 'https://example.com/stream.mp3'
-    });
-    urlGroup.appendChild(urlLabel);
-    urlGroup.appendChild(urlInput);
-    form.appendChild(urlGroup);
+    // Helper function to create form groups
+    const createFormGroup = (name: string, label: string, type: string, required = false, placeholder?: string, maxLength?: number) => {
+      const group = createElement('div', { className: 'form-group' });
+      const labelEl = createElement('label', {}, [required ? `${label} *` : label]);
+      const input = createElement('input', {
+        type,
+        required,
+        placeholder: placeholder || '',
+        maxLength
+      }) as HTMLInputElement;
+      
+      inputs[name] = input;
+      group.appendChild(labelEl);
+      group.appendChild(input);
+      return group;
+    };
 
-    // Station name field
-    const nameGroup = createElement('div', { className: 'form-group' });
-    const nameLabel = createElement('label', {}, ['Station Name *']);
-    const nameInput = createElement('input', {
-      type: 'text',
-      required: true,
-      placeholder: 'Enter station name'
-    });
-    nameGroup.appendChild(nameLabel);
-    nameGroup.appendChild(nameInput);
-    form.appendChild(nameGroup);
+    // Required fields
+    form.appendChild(createFormGroup('url', 'Stream URL', 'url', true, 'https://example.com/stream.mp3'));
+    form.appendChild(createFormGroup('name', 'Station Name', 'text', true, 'Enter station name'));
 
     // Optional fields
-    const optionalFields = [
-      { name: 'favicon', label: 'Favicon URL', type: 'url', placeholder: 'https://example.com/favicon.ico' },
-      { name: 'homepage', label: 'Homepage URL', type: 'url', placeholder: 'https://example.com' },
-      { name: 'bitrate', label: 'Bitrate', type: 'number', placeholder: '128' },
-      { name: 'country', label: 'Country Code', type: 'text', placeholder: 'US', maxLength: 2 }
-    ];
-
-    optionalFields.forEach(field => {
-      const group = createElement('div', { className: 'form-group' });
-      const label = createElement('label', {}, [field.label]);
-      const input = createElement('input', {
-        type: field.type,
-        placeholder: field.placeholder,
-        maxLength: field.maxLength
-      });
-      group.appendChild(label);
-      group.appendChild(input);
-      form.appendChild(group);
-    });
+    form.appendChild(createFormGroup('favicon', 'Favicon URL', 'url', false, 'https://example.com/favicon.ico'));
+    form.appendChild(createFormGroup('homepage', 'Homepage URL', 'url', false, 'https://example.com'));
+    form.appendChild(createFormGroup('bitrate', 'Bitrate', 'number', false, '128'));
+    form.appendChild(createFormGroup('country', 'Country Code', 'text', false, 'US', 2));
 
     // Submit button
     const submitButton = createElement('button', {
       type: 'submit',
       className: 'form-submit'
     }, ['Add Station']);
-
     form.appendChild(submitButton);
 
     // Handle form submission
     form.addEventListener('submit', (event) => {
       event.preventDefault();
       
-      const formData = new FormData(form);
+      // Validate required fields
+      if (!inputs.url.value.trim() || !inputs.name.value.trim()) {
+        return;
+      }
+
       const stationData = {
-        url: urlInput.value,
-        name: nameInput.value,
+        url: inputs.url.value.trim(),
+        name: inputs.name.value.trim(),
         stationuuid: `manual_${Date.now()}`,
-        // Add other fields from formData
+        favicon: inputs.favicon.value.trim() || undefined,
+        homepage: inputs.homepage.value.trim() || undefined,
+        bitrate: inputs.bitrate.value ? parseInt(inputs.bitrate.value, 10) : undefined,
+        country: inputs.country.value.trim().toUpperCase() || undefined
       };
+
+      // Filter out undefined values
+      Object.keys(stationData).forEach(key => {
+        if ((stationData as any)[key] === undefined) {
+          delete (stationData as any)[key];
+        }
+      });
 
       onAdd(stationData);
     });

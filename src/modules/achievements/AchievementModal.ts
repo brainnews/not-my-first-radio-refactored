@@ -2,9 +2,9 @@
  * Achievement modal component for viewing all achievements
  */
 
-import { Achievement, UserStats } from '@/types/app';
+import { Achievement, UserStats, AppEventType } from '@/types/app';
 import { AchievementCategory } from './AchievementManager';
-import { createElement, querySelector } from '@/utils/dom';
+import { createElement } from '@/utils/dom';
 import { eventManager } from '@/utils/events';
 import { formatDuration } from '@/utils/format';
 
@@ -23,6 +23,7 @@ export class AchievementModal {
   private categories: AchievementCategory[] = [];
   private userStats: UserStats | null = null;
   private activeCategory: string = 'all';
+  private eventListeners: Array<{ event: AppEventType; handler: Function }> = [];
 
   constructor(config: AchievementModalConfig = {}) {
     this.config = {
@@ -40,17 +41,25 @@ export class AchievementModal {
    * Set up event listeners
    */
   private setupEventListeners(): void {
-    eventManager.on('achievements:show-modal', (achievementId?: string) => {
+    const showModalHandler = (achievementId?: string) => {
       this.show(achievementId);
-    });
-
-    eventManager.on('achievements:hide-modal', () => {
+    };
+    const hideModalHandler = () => {
       this.hide();
-    });
-
-    eventManager.on('modal:close', () => {
+    };
+    const modalCloseHandler = () => {
       this.hide();
-    });
+    };
+
+    eventManager.on('achievements:show-modal', showModalHandler);
+    eventManager.on('achievements:hide-modal', hideModalHandler);
+    eventManager.on('modal:close', modalCloseHandler);
+
+    this.eventListeners = [
+      { event: 'achievements:show-modal', handler: showModalHandler },
+      { event: 'achievements:hide-modal', handler: hideModalHandler },
+      { event: 'modal:close', handler: modalCloseHandler }
+    ];
   }
 
   /**
@@ -196,7 +205,7 @@ export class AchievementModal {
         }
 
         .achievement-categories {
-          padding: 24px 24px 0px !important;
+          padding: 24px 24px 0px;
         }
 
         .achievement-category-tabs {
@@ -244,6 +253,7 @@ export class AchievementModal {
           padding: 20px;
           transition: all 0.2s ease;
           cursor: pointer;
+          position: relative;
         }
 
         .achievement-card:hover {
@@ -285,9 +295,6 @@ export class AchievementModal {
           justify-content: center;
         }
 
-        .achievement-card {
-          position: relative;
-        }
 
         .achievement-card-header {
           display: flex;
@@ -377,6 +384,12 @@ export class AchievementModal {
           font-size: 48px;
           margin-bottom: 16px;
           opacity: 0.5;
+        }
+
+        .achievement-card.highlight {
+          border-color: var(--accent-color, #4CAF50);
+          box-shadow: 0 0 20px rgba(76, 175, 80, 0.3);
+          transform: translateY(-2px);
         }
 
         /* Mobile responsive */
@@ -625,11 +638,9 @@ export class AchievementModal {
    */
   private createAchievementCard(achievement: Achievement): HTMLElement {
     const card = createElement('div', {
-      className: `achievement-card ${achievement.unlocked ? 'unlocked' : 'locked'}`,
-      onclick: () => {
-        // Show achievement details or close modal
-      }
+      className: `achievement-card ${achievement.unlocked ? 'unlocked' : 'locked'}`
     });
+    card.setAttribute('data-achievement-id', achievement.id);
 
     // Header
     const header = createElement('div', { className: 'achievement-card-header' });
@@ -638,11 +649,9 @@ export class AchievementModal {
     icon.textContent = achievement.icon;
     header.appendChild(icon);
 
-    const titleContainer = createElement('div');
     const title = createElement('h3', { className: 'achievement-card-title' });
     title.textContent = achievement.name;
-    titleContainer.appendChild(title);
-    header.appendChild(titleContainer);
+    header.appendChild(title);
 
     card.appendChild(header);
 
@@ -746,13 +755,12 @@ export class AchievementModal {
     setTimeout(() => {
       if (!this.modal) return;
 
-      const cards = this.modal.querySelectorAll('.achievement-card');
-      cards.forEach(card => {
-        // Find the card by checking achievement data
-        // This would need achievement ID stored in card data
-        card.classList.add('highlight');
-        setTimeout(() => card.classList.remove('highlight'), 2000);
-      });
+      const targetCard = this.modal.querySelector(`[data-achievement-id="${achievementId}"]`);
+      if (targetCard) {
+        targetCard.classList.add('highlight');
+        targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => targetCard.classList.remove('highlight'), 2000);
+      }
     }, 300);
   }
 
@@ -768,7 +776,10 @@ export class AchievementModal {
    */
   public destroy(): void {
     this.hide();
-    eventManager.removeAllListeners('achievements:show-modal');
-    eventManager.removeAllListeners('achievements:hide-modal');
+    
+    this.eventListeners.forEach(({ event, handler }) => {
+      eventManager.off(event, handler as any);
+    });
+    this.eventListeners = [];
   }
 }

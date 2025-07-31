@@ -61,7 +61,8 @@ export type ModalType =
   | 'settings' 
   | 'achievements' 
   | 'terms' 
-  | 'confirmation';
+  | 'confirmation'
+  | 'alert';
 
 /**
  * Modal state

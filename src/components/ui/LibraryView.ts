@@ -187,122 +187,6 @@ export class LibraryView {
 
 
 
-  /**
-   * Show station context menu
-   */
-  private showStationMenu(_station: LocalStation, _anchorElement: HTMLElement): void {
-    // Remove any existing menu
-    const existingMenu = document.querySelector('.library-station-menu');
-    if (existingMenu) {
-      existingMenu.remove();
-    }
-
-    // Create menu container
-    const menu = createElement('div', { className: 'library-station-menu' });
-    const menuList = createElement('div', { className: 'library-station-menu-list' });
-
-    // Preset management
-    const presetSubmenu = createElement('div', { className: 'library-station-menu-item library-station-menu-submenu' });
-    const presetLabel = createElement('span', {}, [station.presetSlot ? `Preset ${station.presetSlot}` : 'Add to Preset']);
-    const presetIcon = createElement('span', { className: 'material-symbols-rounded' }, ['radio']);
-    presetSubmenu.appendChild(presetIcon);
-    presetSubmenu.appendChild(presetLabel);
-    
-    // Preset slots submenu
-    const presetSlots = createElement('div', { className: 'library-station-submenu' });
-    for (let i = 1; i <= 6; i++) {
-      const slotItem = createElement('div', { className: 'library-station-menu-item' });
-      const slotIcon = createElement('span', { className: 'material-symbols-rounded' }, [
-        station.presetSlot === i ? 'radio_button_checked' : 'radio_button_unchecked'
-      ]);
-      const slotLabel = createElement('span', {}, [`Preset ${i}`]);
-      slotItem.appendChild(slotIcon);
-      slotItem.appendChild(slotLabel);
-      
-      slotItem.addEventListener('click', () => {
-        if (station.presetSlot === i) {
-          // Remove from preset
-          eventManager.emit('preset:removed', { station, slot: i });
-        } else {
-          // Set to preset
-          eventManager.emit('preset:set', { station, slot: i });
-        }
-        menu.remove();
-      });
-      
-      presetSlots.appendChild(slotItem);
-    }
-    presetSubmenu.appendChild(presetSlots);
-    menuList.appendChild(presetSubmenu);
-
-    // Share station
-    const shareItem = createElement('div', { className: 'library-station-menu-item' });
-    const shareIcon = createElement('span', { className: 'material-symbols-rounded' }, ['share']);
-    const shareLabel = createElement('span', {}, ['Share Station']);
-    shareItem.appendChild(shareIcon);
-    shareItem.appendChild(shareLabel);
-    shareItem.addEventListener('click', () => {
-      eventManager.emit('station:share', station);
-      menu.remove();
-    });
-    menuList.appendChild(shareItem);
-
-    // Visit website
-    if (station.homepage) {
-      const websiteItem = createElement('div', { className: 'library-station-menu-item' });
-      const websiteIcon = createElement('span', { className: 'material-symbols-rounded' }, ['language']);
-      const websiteLabel = createElement('span', {}, ['Visit Website']);
-      websiteItem.appendChild(websiteIcon);
-      websiteItem.appendChild(websiteLabel);
-      websiteItem.addEventListener('click', () => {
-        window.open(station.homepage, '_blank');
-        menu.remove();
-      });
-      menuList.appendChild(websiteItem);
-    }
-
-    // Edit note
-    const editItem = createElement('div', { className: 'library-station-menu-item' });
-    const editIcon = createElement('span', { className: 'material-symbols-rounded' }, ['edit_note']);
-    const editLabel = createElement('span', {}, ['Edit Note']);
-    editItem.appendChild(editIcon);
-    editItem.appendChild(editLabel);
-    editItem.addEventListener('click', () => {
-      this.showEditNoteModal(station);
-      menu.remove();
-    });
-    menuList.appendChild(editItem);
-
-    // Remove station
-    const removeItem = createElement('div', { className: 'library-station-menu-item library-station-menu-danger' });
-    const removeIcon = createElement('span', { className: 'material-symbols-rounded' }, ['delete']);
-    const removeLabel = createElement('span', {}, ['Remove Station']);
-    removeItem.appendChild(removeIcon);
-    removeItem.appendChild(removeLabel);
-    removeItem.addEventListener('click', () => {
-      eventManager.emit('station:remove', station);
-      menu.remove();
-    });
-    menuList.appendChild(removeItem);
-
-    menu.appendChild(menuList);
-
-    // Position menu near the anchor element
-    document.body.appendChild(menu);
-    const anchorRect = anchorElement.getBoundingClientRect();
-    menu.style.position = 'absolute';
-    menu.style.top = `${anchorRect.bottom + window.scrollY}px`;
-    menu.style.left = `${anchorRect.left + window.scrollX - menu.offsetWidth + anchorElement.offsetWidth}px`;
-
-    // Close menu when clicking outside
-    const closeMenu = (e: Event) => {
-      if (!menu.contains(e.target as Node)) {
-        menu.remove();
-        document.removeEventListener('click', closeMenu);
-      }
-    };
-    setTimeout(() => document.addEventListener('click', closeMenu), 0);
-  }
 
   /**
    * Show library options menu with all actions at top level
@@ -472,7 +356,9 @@ export class LibraryView {
    * Import stations from JSON content
    */
   private importStationsFromJSON(jsonContent: string): void {
+    // Validate JSON before emitting event
     try {
+      JSON.parse(jsonContent);
       // Emit event to App.ts to show the import modal with merge/overwrite options
       eventManager.emit('data:import-modal', jsonContent);
     } catch (error) {
@@ -484,32 +370,6 @@ export class LibraryView {
     }
   }
 
-  /**
-   * Show edit note modal
-   */
-  private showEditNoteModal(station: LocalStation): void {
-    const currentNote = station.customName || '';
-    
-    const modalData = {
-      title: 'Edit Station Note',
-      message: 'Add a personal note or custom name for this station:',
-      input: {
-        type: 'textarea',
-        placeholder: 'Enter your note or custom name...',
-        value: currentNote
-      },
-      confirmText: 'Save',
-      cancelText: 'Cancel',
-      onConfirm: (value: string) => {
-        eventManager.emit('station:note-updated', { 
-          station, 
-          customName: value.trim() || undefined 
-        });
-      }
-    };
-
-    eventManager.emit('modal:open', { type: 'prompt', data: modalData });
-  }
 
   /**
    * Render all stations section - delegates to StationManager for sorting/filtering
@@ -578,33 +438,27 @@ export class LibraryView {
   }
 
   /**
+   * Handle station data changes and refresh view
+   */
+  private handleStationChange = (stations?: LocalStation[]): void => {
+    if (stations) {
+      this.stations = stations;
+    } else {
+      this.loadStations();
+    }
+    this.render();
+  };
+
+  /**
    * Set up event listeners
    */
   private setupEventListeners(): void {
     // Listen for station changes
-    eventManager.on('stations:loaded', (stations: LocalStation[]) => {
-      this.stations = stations;
-      this.render();
-    });
-
-    eventManager.on('station:added', () => {
-      this.loadStations();
-      this.render();
-    });
-
-    eventManager.on('station:removed', () => {
-      this.loadStations();
-      this.render();
-    });
-
-    eventManager.on('station:updated', () => {
-      this.loadStations();
-      this.render();
-    });
-    eventManager.on('stations:imported', () => {
-      this.loadStations();
-      this.render();
-    });
+    eventManager.on('stations:loaded', this.handleStationChange);
+    eventManager.on('station:added', this.handleStationChange);
+    eventManager.on('station:removed', this.handleStationChange);
+    eventManager.on('station:updated', this.handleStationChange);
+    eventManager.on('stations:imported', this.handleStationChange);
 
 
     // Listen for player state changes to update currently playing station UI
@@ -682,18 +536,19 @@ export class LibraryView {
     this.render();
   }
 
+
   /**
-   * Show the library view
+   * Show the library view (visibility controlled by CSS)
    */
   show(): void {
     // View visibility is controlled by body.view-library class in CSS
   }
 
   /**
-   * Hide the library view
+   * Hide the library view (visibility controlled by CSS)
    */
   hide(): void {
-    // View visibility is controlled by body class, nothing to do here
+    // View visibility is controlled by body class in CSS
   }
 
   /**
@@ -707,15 +562,19 @@ export class LibraryView {
    * Clean up resources
    */
   destroy(): void {
-    eventManager.removeAllListeners('stations:loaded');
-    eventManager.removeAllListeners('station:added');
-    eventManager.removeAllListeners('station:removed');
-    eventManager.removeAllListeners('station:updated');
-    eventManager.removeAllListeners('stations:imported');
+    // Remove specific listeners to avoid affecting other components
+    eventManager.off('stations:loaded', this.handleStationChange);
+    eventManager.off('station:added', this.handleStationChange);
+    eventManager.off('station:removed', this.handleStationChange);
+    eventManager.off('station:updated', this.handleStationChange);
+    eventManager.off('stations:imported', this.handleStationChange);
+    
+    // Remove player state listeners (these use anonymous functions, so we'll need to keep them as removeAllListeners)
     eventManager.removeAllListeners('station:selected');
     eventManager.removeAllListeners('station:play');
     eventManager.removeAllListeners('station:pause');
     eventManager.removeAllListeners('station:stop');
+    
     this.container.remove();
   }
 }
