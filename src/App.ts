@@ -38,9 +38,6 @@ export interface AppConfig {
   autoInit?: boolean;
 }
 
-/**
- * Main application class that coordinates all modules
- */
 export class App {
   private config: AppConfig;
   private state: AppState;
@@ -249,50 +246,11 @@ export class App {
           // Update loading progress
           this.updateLoadingProgress(index + 1, totalStations);
 
-          if (typeof item === 'string') {
-            // Radio Browser UUID - fetch from API
-            const response = await radioBrowserApi.getStationByUuid(item);
-            if (response.success && response.data) {
-              stationsToImport.push({
-                ...response.data,
-                id: this.generateStationId(),
-                dateAdded: new Date().toISOString(),
-                playCount: 0,
-                isFavorite: false
-              });
-            } else {
-              console.warn('[App] Failed to fetch station with UUID:', item);
-              failedCount++;
-            }
+          const processedStation = await this.processSharedStationItem(item);
+          if (processedStation) {
+            stationsToImport.push(processedStation);
           } else {
-            // Manual station object - convert to LocalStation format
-            const shareableStation = item as ShareableStation;
-            stationsToImport.push({
-              id: this.generateStationId(),
-              stationuuid: '', // Manual stations don't have UUIDs
-              name: shareableStation.name,
-              url: shareableStation.url,
-              favicon: shareableStation.favicon,
-              homepage: shareableStation.homepage,
-              bitrate: shareableStation.bitrate,
-              countrycode: shareableStation.countrycode,
-              note: shareableStation.note,
-              dateAdded: new Date().toISOString(),
-              playCount: 0,
-              isFavorite: false,
-              // Add required fields with defaults
-              country: shareableStation.countrycode || '',
-              votes: 0,
-              tags: '',
-              language: '',
-              clickcount: 0,
-              clicktrend: 0,
-              state: '',
-              codec: '',
-              lastchangetime: '',
-              lastcheckok: 1,
-              lastchecktime: ''
-            });
+            failedCount++;
           }
         } catch (error) {
           console.warn('[App] Failed to process shared station:', item, error);
@@ -356,7 +314,7 @@ export class App {
 
     const modal = {
       type: 'confirmation' as const,
-      title: '',
+      title: 'Import station',
       content: content,
       actions: [
         {
@@ -526,6 +484,68 @@ export class App {
   }
 
   /**
+   * Process a shared station item (either UUID string or station object)
+   */
+  private async processSharedStationItem(item: string | ShareableStation): Promise<LocalStation | null> {
+    if (typeof item === 'string') {
+      return await this.processRadioBrowserStation(item);
+    } else {
+      return this.processManualStation(item);
+    }
+  }
+
+  /**
+   * Process Radio Browser station by UUID
+   */
+  private async processRadioBrowserStation(uuid: string): Promise<LocalStation | null> {
+    const response = await radioBrowserApi.getStationByUuid(uuid);
+    if (response.success && response.data) {
+      return {
+        ...response.data,
+        id: this.generateStationId(),
+        dateAdded: new Date().toISOString(),
+        playCount: 0,
+        isFavorite: false
+      };
+    } else {
+      console.warn('[App] Failed to fetch station with UUID:', uuid);
+      return null;
+    }
+  }
+
+  /**
+   * Process manual station object
+   */
+  private processManualStation(shareableStation: ShareableStation): LocalStation {
+    return {
+      id: this.generateStationId(),
+      stationuuid: '', // Manual stations don't have UUIDs
+      name: shareableStation.name,
+      url: shareableStation.url,
+      favicon: shareableStation.favicon,
+      homepage: shareableStation.homepage,
+      bitrate: shareableStation.bitrate,
+      countrycode: shareableStation.countrycode,
+      note: shareableStation.note,
+      dateAdded: new Date().toISOString(),
+      playCount: 0,
+      isFavorite: false,
+      // Add required fields with defaults
+      country: shareableStation.countrycode || '',
+      votes: 0,
+      tags: '',
+      language: '',
+      clickcount: 0,
+      clicktrend: 0,
+      state: '',
+      codec: '',
+      lastchangetime: '',
+      lastcheckok: 1,
+      lastchecktime: ''
+    };
+  }
+
+  /**
    * Set up communication between modules
    */
   private setupModuleIntegration(): void {
@@ -622,7 +642,7 @@ export class App {
       this.achievementManager.trackProgress('qrShare', 1);
     });
 
-    // Handle sharing all stations from library (legacy, still used by some views)
+    // Handle sharing all stations from library
     eventManager.on('stations:share', () => {
       this.showLibraryShareMenu();
     });
@@ -741,17 +761,6 @@ export class App {
    * Update UI elements for the current view
    */
   private updateViewUI(currentView: 'library' | 'settings' | 'search'): void {
-    // Get main UI sections (optional for legacy support)
-    let settingsPanel: HTMLElement | null = null;
-    let settingsOverlay: HTMLElement | null = null;
-
-    try {
-      settingsPanel = querySelector('#settings-panel') as HTMLElement;
-      settingsOverlay = querySelector('#settings-overlay') as HTMLElement;
-    } catch (error) {
-      console.log('[App] Settings panel not found - using new settings view');
-    }
-    
     // Hide all sections first
     if (this.libraryView) {
       this.libraryView.hide();
@@ -761,10 +770,6 @@ export class App {
     }
     if (this.searchView) {
       this.searchView.hide();
-    }
-    
-    if (settingsPanel && settingsOverlay) {
-      this.closeSettingsPanel(settingsPanel, settingsOverlay);
     }
     
     // Show the appropriate section based on current view
@@ -791,12 +796,9 @@ export class App {
         if (this.settingsView) {
           this.settingsView.show();
         }
-        // Legacy support
-        if (settingsPanel && settingsOverlay) {
-          this.openSettingsPanel(settingsPanel, settingsOverlay);
-        }
         document.body.classList.add('view-settings');
         document.body.classList.remove('view-library', 'view-search');
+        console.log('[App] Switched to settings view');
         break;
     }
     
@@ -869,20 +871,6 @@ export class App {
    * Set up initial UI state
    */
   private setupInitialUI(): void {
-    // Initialize menu button (optional for legacy support)
-    try {
-      const menuBtn = querySelector('#menu-btn');
-      menuBtn.addEventListener('click', () => {
-        this.toggleSettingsPanel();
-      });
-    } catch (error) {
-      console.log('[App] Menu button not found - using new navigation');
-    }
-
-
-    // Initialize settings panel controls
-    this.setupSettingsControls();
-
     // Set up keyboard shortcuts
     this.setupKeyboardShortcuts();
 
@@ -895,43 +883,6 @@ export class App {
     console.log('[App] Initial UI setup complete');
   }
 
-  /**
-   * Set up settings panel controls (legacy support - optional elements)
-   */
-  private setupSettingsControls(): void {
-    try {
-      // Settings overlay click to close (legacy)
-      const overlay = querySelector('#settings-overlay') as HTMLElement;
-      overlay.addEventListener('click', () => {
-        const settingsPanel = querySelector('#settings-panel') as HTMLElement;
-        if (!settingsPanel.classList.contains('hidden')) {
-          this.closeSettingsPanel(settingsPanel, overlay);
-        }
-      });
-
-      // Settings close button (legacy)
-      const closeBtn = querySelector('#close-settings');
-      closeBtn.addEventListener('click', () => {
-        const settingsPanel = querySelector('#settings-panel') as HTMLElement;
-        const settingsOverlay = querySelector('#settings-overlay') as HTMLElement;
-        this.closeSettingsPanel(settingsPanel, settingsOverlay);
-      });
-
-      // Prevent settings panel clicks from closing when clicking inside panel (legacy)
-      const settingsPanel = querySelector('#settings-panel') as HTMLElement;
-      settingsPanel.addEventListener('click', (e) => {
-        e.stopPropagation();
-      });
-
-      // Username save functionality - setup when settings panel opens
-      // this.setupUsernameControls();
-
-      // Settings panel action buttons - setup when settings panel opens  
-      // this.setupSettingsActions();
-    } catch (error) {
-      console.log('[App] Legacy settings panel not found - using new settings view');
-    }
-  }
 
 
 
@@ -1011,11 +962,63 @@ export class App {
     }
 
     // Remove existing menu if present
-    const existingMenu = document.querySelector('.library-share-menu');
-    const existingOverlay = document.querySelector('.library-share-menu-overlay');
-    if (existingMenu) existingMenu.remove();
-    if (existingOverlay) existingOverlay.remove();
+    this.removeExistingShareMenu();
 
+    // Create menu with configuration-based approach
+    const menuConfig = this.getLibraryShareMenuConfig();
+    const { overlay, menu } = this.createShareMenu(menuConfig);
+
+    // Add to DOM and show
+    document.body.appendChild(overlay);
+    document.body.appendChild(menu);
+    this.positionLibraryShareMenu(menu);
+    this.setupShareMenuKeyboardHandler();
+  }
+
+  /**
+   * Get configuration for library share menu items
+   */
+  private getLibraryShareMenuConfig() {
+    return [
+      {
+        icon: 'add',
+        label: 'Add Station',
+        action: () => {
+          this.closeLibraryShareMenu();
+          eventManager.emit('modal:add-station');
+        }
+      },
+      {
+        icon: 'link',
+        label: 'Share with Link',
+        action: async () => {
+          this.closeLibraryShareMenu();
+          await this.shareStationsAsUrl();
+        }
+      },
+      {
+        icon: 'qr_code',
+        label: 'Share with QR Code',
+        action: async () => {
+          this.closeLibraryShareMenu();
+          await this.shareStationsAsQR();
+        }
+      },
+      {
+        icon: 'download',
+        label: 'Export as JSON',
+        action: () => {
+          this.closeLibraryShareMenu();
+          this.exportStationsAsJSON();
+        }
+      }
+    ];
+  }
+
+  /**
+   * Create share menu from configuration
+   */
+  private createShareMenu(menuConfig: Array<{icon: string, label: string, action: () => void | Promise<void>}>) {
     // Create menu overlay
     const overlay = document.createElement('div');
     overlay.className = 'library-share-menu-overlay';
@@ -1031,69 +1034,36 @@ export class App {
     const menuList = document.createElement('div');
     menuList.className = 'library-share-menu-list';
 
-    // Add station option
-    const addStationItem = document.createElement('div');
-    addStationItem.className = 'library-share-menu-item';
-    addStationItem.innerHTML = `
-      <span class="material-symbols-rounded">add</span>
-      <span>Add Station</span>
-    `;
-    addStationItem.addEventListener('click', () => {
-      this.closeLibraryShareMenu();
-      eventManager.emit('modal:add-station');
+    // Create menu items from configuration
+    menuConfig.forEach(config => {
+      const menuItem = document.createElement('div');
+      menuItem.className = 'library-share-menu-item';
+      menuItem.innerHTML = `
+        <span class="material-symbols-rounded">${config.icon}</span>
+        <span>${config.label}</span>
+      `;
+      menuItem.addEventListener('click', config.action);
+      menuList.appendChild(menuItem);
     });
 
-    // Share with URL option
-    const shareUrlItem = document.createElement('div');
-    shareUrlItem.className = 'library-share-menu-item';
-    shareUrlItem.innerHTML = `
-      <span class="material-symbols-rounded">link</span>
-      <span>Share with Link</span>
-    `;
-    shareUrlItem.addEventListener('click', async () => {
-      this.closeLibraryShareMenu();
-      await this.shareStationsAsUrl();
-    });
-
-    // Share with QR code option
-    const shareQrItem = document.createElement('div');
-    shareQrItem.className = 'library-share-menu-item';
-    shareQrItem.innerHTML = `
-      <span class="material-symbols-rounded">qr_code</span>
-      <span>Share with QR Code</span>
-    `;
-    shareQrItem.addEventListener('click', async () => {
-      this.closeLibraryShareMenu();
-      await this.shareStationsAsQR();
-    });
-
-    // Export as JSON option
-    const exportJsonItem = document.createElement('div');
-    exportJsonItem.className = 'library-share-menu-item';
-    exportJsonItem.innerHTML = `
-      <span class="material-symbols-rounded">download</span>
-      <span>Export as JSON</span>
-    `;
-    exportJsonItem.addEventListener('click', () => {
-      this.closeLibraryShareMenu();
-      this.exportStationsAsJSON();
-    });
-
-    // Add items to menu
-    menuList.appendChild(addStationItem);
-    menuList.appendChild(shareUrlItem);
-    menuList.appendChild(shareQrItem);
-    menuList.appendChild(exportJsonItem);
     menu.appendChild(menuList);
+    return { overlay, menu };
+  }
 
-    // Add to DOM
-    document.body.appendChild(overlay);
-    document.body.appendChild(menu);
+  /**
+   * Remove existing share menu if present
+   */
+  private removeExistingShareMenu(): void {
+    const existingMenu = document.querySelector('.library-share-menu');
+    const existingOverlay = document.querySelector('.library-share-menu-overlay');
+    if (existingMenu) existingMenu.remove();
+    if (existingOverlay) existingOverlay.remove();
+  }
 
-    // Position menu near share button (desktop) or slide up (mobile)
-    this.positionLibraryShareMenu(menu);
-
-    // Add escape key handler
+  /**
+   * Set up keyboard handler for share menu
+   */
+  private setupShareMenuKeyboardHandler(): void {
     const escapeHandler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         this.closeLibraryShareMenu();
@@ -1462,12 +1432,6 @@ export class App {
    * Update player UI elements
    */
   private updatePlayerUI(playerState: any): void {
-    const playerBar = querySelector('.player-bar');
-    const stationName = querySelector('#station-name');
-    const stationDetails = querySelector('#station-details');
-    const playPauseBtn = querySelector('#play-pause');
-    const nowPlaying = querySelector('.now-playing');
-
     // Build current UI state for comparison
     const currentUIState = {
       stationName: this.state.currentStation?.name || 'Select a station',
@@ -1476,6 +1440,31 @@ export class App {
       isPlaying: playerState.isPlaying,
       isLoading: playerState.isLoading
     };
+
+    // Update player bar state
+    this.updatePlayerBarState(currentUIState, playerState);
+    
+    // Update player controls
+    this.updatePlayerControls(currentUIState, playerState);
+    
+    // Set up event handlers (only once)
+    this.setupPlayerEventHandlers();
+    
+    // Update volume controls
+    this.updateVolumeControls();
+
+    // Store current state for next comparison
+    this.previousPlayerUIState = { ...currentUIState };
+  }
+
+  /**
+   * Update player bar visibility and station info
+   */
+  private updatePlayerBarState(currentUIState: any, playerState: any): void {
+    const playerBar = querySelector('.player-bar');
+    const stationName = querySelector('#station-name');
+    const stationDetails = querySelector('#station-details');
+    const nowPlaying = querySelector('.now-playing');
 
     if (this.state.currentStation) {
       // Show player bar
@@ -1523,7 +1512,14 @@ export class App {
         this.updatePageTitle();
       }
     }
+  }
 
+  /**
+   * Update player control buttons (play/pause, shuffle)
+   */
+  private updatePlayerControls(currentUIState: any, playerState: any): void {
+    const playPauseBtn = querySelector('#play-pause');
+    
     // Update play/pause button only if state changed
     if (this.previousPlayerUIState.isPlaying !== currentUIState.isPlaying || 
         this.previousPlayerUIState.isLoading !== currentUIState.isLoading) {
@@ -1544,18 +1540,41 @@ export class App {
       }
     }
 
-    // Set up play/pause button click handler (only set once)
-    if (!playPauseBtn.hasAttribute('data-handler-set')) {
-      playPauseBtn.addEventListener('click', () => {
-        this.radioPlayer.togglePlayPause();
-      });
-      playPauseBtn.setAttribute('data-handler-set', 'true');
+    // Update shuffle button state based on station count
+    const shuffleBtn = querySelector('#shuffle-station') as HTMLButtonElement;
+    if (shuffleBtn) {
+      const stations = this.stationManager.getAllStations();
+      const shouldDisable = stations.length < 2;
+      
+      shuffleBtn.disabled = shouldDisable;
+      shuffleBtn.title = shouldDisable ? 
+        'Add more stations to enable shuffle' : 
+        'Shuffle to random station';
+        
+      // Add ARIA label for accessibility
+      shuffleBtn.setAttribute('aria-label', shouldDisable ? 
+        'Shuffle disabled: Add more stations to enable shuffle' : 
+        'Shuffle to random station');
     }
+  }
+
+  /**
+   * Set up player event handlers (only once per element)
+   */
+  private setupPlayerEventHandlers(): void {
+    const playPauseBtn = querySelector('#play-pause');
+    const shuffleBtn = querySelector('#shuffle-station') as HTMLButtonElement;
+    const muteToggle = querySelector('#mute-toggle');
+    const volumeSlider = querySelector('#volume-slider') as HTMLInputElement;
+
+    // Set up play/pause button click handler (only set once)
+    this.setupEventHandlerOnce(playPauseBtn, 'click', () => {
+      this.radioPlayer.togglePlayPause();
+    });
 
     // Set up shuffle button
-    const shuffleBtn = querySelector('#shuffle-station') as HTMLButtonElement;
-    if (shuffleBtn && !shuffleBtn.hasAttribute('data-handler-set')) {
-      shuffleBtn.addEventListener('click', () => {
+    if (shuffleBtn) {
+      this.setupEventHandlerOnce(shuffleBtn, 'click', () => {
         // Show loading state
         const shuffleIcon = shuffleBtn.querySelector('.material-symbols-rounded');
         if (shuffleIcon) {
@@ -1577,61 +1596,32 @@ export class App {
           shuffleBtn.disabled = stations.length < 2;
         }, 1000);
       });
-      shuffleBtn.setAttribute('data-handler-set', 'true');
-    }
-    
-    // Update shuffle button state based on station count
-    if (shuffleBtn) {
-      const stations = this.stationManager.getAllStations();
-      const shouldDisable = stations.length < 2;
-      
-      shuffleBtn.disabled = shouldDisable;
-      shuffleBtn.title = shouldDisable ? 
-        'Add more stations to enable shuffle' : 
-        'Shuffle to random station';
-        
-      // Add ARIA label for accessibility
-      shuffleBtn.setAttribute('aria-label', shouldDisable ? 
-        'Shuffle disabled: Add more stations to enable shuffle' : 
-        'Shuffle to random station');
     }
 
     // Set up volume control handlers (only set once)
-    const muteToggle = querySelector('#mute-toggle');
-    const volumeSlider = querySelector('#volume-slider') as HTMLInputElement;
-    
-    if (muteToggle && !muteToggle.hasAttribute('data-handler-set')) {
-      muteToggle.addEventListener('click', () => {
+    if (muteToggle) {
+      this.setupEventHandlerOnce(muteToggle, 'click', () => {
         this.radioPlayer.toggleMute();
       });
-      muteToggle.setAttribute('data-handler-set', 'true');
     }
     
-    if (volumeSlider && !volumeSlider.hasAttribute('data-handler-set')) {
-      volumeSlider.addEventListener('input', (event) => {
+    if (volumeSlider) {
+      this.setupEventHandlerOnce(volumeSlider, 'input', (event) => {
         const target = event.target as HTMLInputElement;
         const volume = parseInt(target.value) / 100; // Convert 0-100 to 0-1
         this.radioPlayer.setVolume(volume);
       });
-      volumeSlider.setAttribute('data-handler-set', 'true');
     }
-    
-    // Update volume controls to reflect current state
-    if (muteToggle && volumeSlider) {
-      const currentState = this.radioPlayer.getState();
-      const muteIcon = muteToggle.querySelector('.material-symbols-rounded');
-      
-      // Update mute button icon
-      if (muteIcon) {
-        muteIcon.textContent = currentState.muted ? 'volume_off' : 'volume_up';
-      }
-      
-      // Update volume slider value (convert 0-1 to 0-100)
-      volumeSlider.value = Math.round(currentState.volume * 100).toString();
-    }
+  }
 
-    // Store current state for next comparison
-    this.previousPlayerUIState = { ...currentUIState };
+  /**
+   * Utility to set up event handler only once per element
+   */
+  private setupEventHandlerOnce(element: Element, eventType: string, handler: EventListener): void {
+    if (!element.hasAttribute('data-handler-set')) {
+      element.addEventListener(eventType, handler);
+      element.setAttribute('data-handler-set', 'true');
+    }
   }
 
   /**
@@ -1732,75 +1722,13 @@ export class App {
   }
 
   /**
-   * Toggle settings panel with proper slide animation
-   */
-  private toggleSettingsPanel(): void {
-    if (this.state.currentView === 'settings') {
-      // If we're in settings view, go back to library
-      this.switchView('library');
-    } else {
-      // Switch to settings view
-      this.switchView('settings');
-    }
-  }
-
-  /**
-   * Open settings panel with slide animation
-   */
-  private openSettingsPanel(settingsPanel: HTMLElement, overlay: HTMLElement): void {
-    // Remove hidden class first
-    settingsPanel.classList.remove('hidden');
-    overlay.classList.remove('hidden');
-    
-    // Ensure display is block (override hidden class)
-    settingsPanel.style.display = 'block';
-    overlay.style.display = 'block';
-    
-    // Force visibility of all content
-    settingsPanel.style.visibility = 'visible';
-    settingsPanel.style.opacity = '1';
-    
-    // Prevent body scrolling
-    document.body.style.overflow = 'hidden';
-    document.body.style.height = '100vh';
-    
-    // Use setTimeout to ensure transitions work properly
-    setTimeout(() => {
-      settingsPanel.classList.add('visible');
-      overlay.classList.add('visible');
-    }, 10);
-  }
-
-  /**
-   * Close settings panel with slide animation
-   */
-  private closeSettingsPanel(settingsPanel: HTMLElement, overlay: HTMLElement): void {
-    // Remove visible class to trigger slide-out animation
-    settingsPanel.classList.remove('visible');
-    overlay.classList.remove('visible');
-    
-    // Restore body scrolling
-    document.body.style.overflow = 'auto';
-    document.body.style.height = 'auto';
-    
-    // Wait for transition to complete before hiding
-    setTimeout(() => {
-      settingsPanel.classList.add('hidden');
-      overlay.classList.add('hidden');
-      // Reset all inline styles
-      settingsPanel.style.cssText = '';
-      overlay.style.cssText = '';
-    }, 300);
-  }
-
-  /**
    * Update page title based on current station and playing state
    */
   private updatePageTitle(): void {
     const defaultTitle = 'Not My First Radio - Algorithm-Free Internet Radio Player';
     
     if (this.state.currentStation && this.state.isPlaying) {
-      document.title = `📡 ${this.state.currentStation.name} on NMFR`;
+      document.title = `🛰️ ${this.state.currentStation.name} on NMFR`;
     } else {
       document.title = defaultTitle;
     }

@@ -14,11 +14,12 @@ export interface ModalManagerConfig {
 
 interface ModalDefinition {
   type: ModalType;
-  title: string;
+  title?: string;
   content: HTMLElement | string;
   actions?: ModalAction[];
   size?: 'small' | 'medium' | 'large' | 'fullscreen';
   closable?: boolean;
+  showHeader?: boolean;
 }
 
 interface ModalAction {
@@ -202,20 +203,35 @@ export class ModalManager {
     // Modal container
     const container = createElement('div', { className: 'modal-container' });
 
-    // Modal header
-    const header = createElement('div', { className: 'modal-header' });
-    const title = createElement('h2', { className: 'modal-title' }, [modal.title]);
-    header.appendChild(title);
+    // Determine if header should be shown
+    const shouldShowHeader = modal.showHeader !== false && (modal.title || modal.closable !== false);
 
-    if (modal.closable !== false) {
-      const closeButton = createElement('button', {
-        className: 'modal-close',
+    // Modal header (conditional)
+    if (shouldShowHeader) {
+      const header = createElement('div', { className: 'modal-header' });
+      
+      if (modal.title) {
+        const title = createElement('h2', { className: 'modal-title' }, [modal.title]);
+        header.appendChild(title);
+      }
+
+      if (modal.closable !== false) {
+        const closeButton = createElement('button', {
+          className: 'modal-close',
+          onclick: () => this.close()
+        }, ['×']);
+        header.appendChild(closeButton);
+      }
+
+      container.appendChild(header);
+    } else if (modal.closable !== false && !shouldShowHeader) {
+      // Add floating close button for header-less modals
+      const floatingClose = createElement('button', {
+        className: 'modal-close modal-close-floating',
         onclick: () => this.close()
       }, ['×']);
-      header.appendChild(closeButton);
+      container.appendChild(floatingClose);
     }
-
-    container.appendChild(header);
 
     // Modal body
     const body = createElement('div', { className: 'modal-body' });
@@ -266,7 +282,18 @@ export class ModalManager {
     );
 
     if (focusableElements.length > 0) {
-      (focusableElements[0] as HTMLElement).focus();
+      // For header-less modals, prefer focusing the first interactive element in modal body
+      const hasHeader = this.currentModal.querySelector('.modal-header');
+      if (!hasHeader) {
+        const bodyFocusable = this.currentModal.querySelector('.modal-body button, .modal-body [href], .modal-body input, .modal-body select, .modal-body textarea, .modal-body [tabindex]:not([tabindex="-1"])') as HTMLElement;
+        if (bodyFocusable) {
+          bodyFocusable.focus();
+        } else {
+          (focusableElements[0] as HTMLElement).focus();
+        }
+      } else {
+        (focusableElements[0] as HTMLElement).focus();
+      }
     }
 
     // Trap focus within modal

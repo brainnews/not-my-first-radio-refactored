@@ -1794,6 +1794,40 @@ main {
     font-size: 1.5rem;
 }
 
+/* Floating close button for header-less modals */
+.modal-close-floating {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    z-index: 1001;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.modal-close-floating:hover {
+    background-color: var(--accent-color-10);
+    color: var(--text-primary);
+}
+
+/* Header-less modal adjustments */
+.modal-container:has(.modal-close-floating) .modal-body {
+    padding-top: 0;
+}
+
+.modal-container:not(:has(.modal-header)) {
+    position: relative;
+}
+
 .modal-actions {
     display: flex;
     gap: 0.5rem;
