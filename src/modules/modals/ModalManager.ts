@@ -422,14 +422,13 @@ export class ModalManager {
     const inputs: { [key: string]: HTMLInputElement } = {};
 
     // Helper function to create form groups
-    const createFormGroup = (name: string, label: string, type: string, required = false, placeholder?: string, maxLength?: number) => {
+    const createFormGroup = (name: string, label: string, type: string, required = false, placeholder?: string) => {
       const group = createElement('div', { className: 'form-group' });
       const labelEl = createElement('label', {}, [required ? `${label} *` : label]);
       const input = createElement('input', {
         type,
         required,
-        placeholder: placeholder || '',
-        maxLength
+        placeholder: placeholder || ''
       }) as HTMLInputElement;
       
       inputs[name] = input;
@@ -446,7 +445,7 @@ export class ModalManager {
     form.appendChild(createFormGroup('favicon', 'Favicon URL', 'url', false, 'https://example.com/favicon.ico'));
     form.appendChild(createFormGroup('homepage', 'Homepage URL', 'url', false, 'https://example.com'));
     form.appendChild(createFormGroup('bitrate', 'Bitrate', 'number', false, '128'));
-    form.appendChild(createFormGroup('country', 'Country Code', 'text', false, 'US', 2));
+    form.appendChild(createFormGroup('country', 'Country Code', 'text', false, 'US'));
 
     // Submit button
     const submitButton = createElement('button', {
