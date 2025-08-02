@@ -7,7 +7,6 @@ import { eventManager } from '@/utils/events';
 export interface Route {
   path: string;
   view: 'library' | 'settings' | 'search';
-  name: string;
 }
 
 export interface RouterConfig {
@@ -23,6 +22,7 @@ export class Router {
   private currentRoute: Route | null = null;
   private config: RouterConfig;
   private isInitialized = false;
+  private popstateHandler: ((event: PopStateEvent) => void) | null = null;
 
   constructor(config: RouterConfig = {}) {
     this.config = {
@@ -42,18 +42,15 @@ export class Router {
     this.routes = [
       {
         path: '/',
-        view: 'library',
-        name: 'Library'
+        view: 'library'
       },
       {
         path: '/search',
-        view: 'search',
-        name: 'Search'
+        view: 'search'
       },
       {
         path: '/settings',
-        view: 'settings', 
-        name: 'Settings'
+        view: 'settings'
       }
     ];
   }
@@ -76,14 +73,15 @@ export class Router {
    */
   private bindEvents(): void {
     // Handle browser back/forward navigation
-    window.addEventListener('popstate', () => {
+    this.popstateHandler = () => {
       const path = this.getCurrentPath();
       const route = this.findRouteByPath(path);
       
       if (route && route !== this.currentRoute) {
         this.navigateToRoute(route, false); // Don't push to history on popstate
       }
-    });
+    };
+    window.addEventListener('popstate', this.popstateHandler);
   }
 
   /**
@@ -208,25 +206,16 @@ export class Router {
     return this.currentRoute?.view || null;
   }
 
-  /**
-   * Get all available routes
-   */
-  getRoutes(): Route[] {
-    return [...this.routes];
-  }
 
-  /**
-   * Check if router is initialized
-   */
-  isRouterInitialized(): boolean {
-    return this.isInitialized;
-  }
 
   /**
    * Destroy router and cleanup
    */
   destroy(): void {
-    window.removeEventListener('popstate', this.bindEvents);
+    if (this.popstateHandler) {
+      window.removeEventListener('popstate', this.popstateHandler);
+      this.popstateHandler = null;
+    }
     this.isInitialized = false;
     this.currentRoute = null;
   }
