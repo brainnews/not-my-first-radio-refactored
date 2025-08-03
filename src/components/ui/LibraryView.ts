@@ -65,7 +65,8 @@ export class LibraryView {
     this.container.innerHTML = '';
     this.container.className = 'library-view';
 
-    // Only render header if there are stations
+    // Always render header if there are stations (or if we're adding one)
+    // This ensures the header doesn't disappear during station addition
     if (this.stations.length > 0) {
       this.renderHeader();
     }
@@ -446,7 +447,13 @@ export class LibraryView {
     } else {
       this.loadStations();
     }
-    this.render();
+    
+    // For station:added events, ensure we have the latest data
+    // Use setTimeout to allow storage operations to complete
+    setTimeout(() => {
+      this.loadStations();
+      this.render();
+    }, 0);
   };
 
   /**

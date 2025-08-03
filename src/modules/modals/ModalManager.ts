@@ -5,6 +5,9 @@
 import { ModalType, ModalState } from '@/types/app';
 import { createElement, addEventListenerWithCleanup } from '@/utils/dom';
 import { eventManager } from '@/utils/events';
+import { metadataExtractor } from '@/services/metadata/MetadataExtractor';
+import { streamValidator } from '@/services/validation/streamValidator';
+import { MetadataExtractionStatus } from '@/types/metadata';
 
 export interface ModalManagerConfig {
   closeOnEscape?: boolean;
@@ -415,37 +418,70 @@ export class ModalManager {
   }
 
   /**
-   * Create add station form
+   * Create enhanced add station form with metadata extraction and validation
    */
   private createAddStationForm(onAdd: (stationData: any) => void): HTMLElement {
     const form = createElement('form', { className: 'add-station-form' });
     const inputs: { [key: string]: HTMLInputElement } = {};
+    const statusElements: { [key: string]: HTMLElement } = {};
+    const autoPopulatedFields = new Set<string>();
+    let validationTimeout: ReturnType<typeof setTimeout> | null = null;
+    let isExtracting = false;
 
-    // Helper function to create form groups
-    const createFormGroup = (name: string, label: string, type: string, required = false, placeholder?: string) => {
+    // Enhanced helper function to create form groups with status indicators
+    const createFormGroup = (
+      name: string, 
+      label: string, 
+      type: string, 
+      required = false, 
+      placeholder?: string
+    ) => {
       const group = createElement('div', { className: 'form-group' });
+      
+      // Label with status container
+      const labelContainer = createElement('div', { className: 'form-label-container' });
       const labelEl = createElement('label', {}, [required ? `${label} *` : label]);
+      const statusIndicator = createElement('span', { className: 'field-status' });
+      
+      labelContainer.appendChild(labelEl);
+      labelContainer.appendChild(statusIndicator);
+      statusElements[name] = statusIndicator;
+
+      // Input container
+      const inputContainer = createElement('div', { className: 'form-input-container' });
       const input = createElement('input', {
         type,
         required,
         placeholder: placeholder || ''
       }) as HTMLInputElement;
-      
+
       inputs[name] = input;
-      group.appendChild(labelEl);
-      group.appendChild(input);
+      inputContainer.appendChild(input);
+
+      group.appendChild(labelContainer);
+      group.appendChild(inputContainer);
+      
       return group;
     };
 
-    // Required fields
-    form.appendChild(createFormGroup('url', 'Stream URL', 'url', true, 'https://example.com/stream.mp3'));
-    form.appendChild(createFormGroup('name', 'Station Name', 'text', true, 'Enter station name'));
+    // Create form fields
+    const urlGroup = createFormGroup('url', 'Stream URL', 'url', true, 'https://example.com/stream.mp3');
+    form.appendChild(urlGroup);
 
-    // Optional fields
-    form.appendChild(createFormGroup('favicon', 'Favicon URL', 'url', false, 'https://example.com/favicon.ico'));
-    form.appendChild(createFormGroup('homepage', 'Homepage URL', 'url', false, 'https://example.com'));
-    form.appendChild(createFormGroup('bitrate', 'Bitrate', 'number', false, '128'));
-    form.appendChild(createFormGroup('country', 'Country Code', 'text', false, 'US'));
+    const nameGroup = createFormGroup('name', 'Station Name', 'text', true, 'Enter station name');
+    form.appendChild(nameGroup);
+
+    const faviconGroup = createFormGroup('favicon', 'Favicon URL', 'url', false, 'https://example.com/favicon.ico');
+    form.appendChild(faviconGroup);
+
+    const homepageGroup = createFormGroup('homepage', 'Homepage URL', 'url', false, 'https://example.com');
+    form.appendChild(homepageGroup);
+
+    const bitrateGroup = createFormGroup('bitrate', 'Bitrate', 'number', false, '128');
+    form.appendChild(bitrateGroup);
+
+    const countryGroup = createFormGroup('country', 'Country Code', 'text', false, 'US');
+    form.appendChild(countryGroup);
 
     // Submit button
     const submitButton = createElement('button', {
@@ -454,12 +490,202 @@ export class ModalManager {
     }, ['Add Station']);
     form.appendChild(submitButton);
 
+    // Utility functions
+    const showFieldStatus = (fieldName: string, status: 'validating' | 'success' | 'error' | 'auto', message?: string) => {
+      const statusEl = statusElements[fieldName];
+      const input = inputs[fieldName];
+      
+      if (!statusEl) return;
+
+      // Clear existing classes and title
+      statusEl.className = 'field-status';
+      statusEl.title = '';
+      input.classList.remove('field-validating', 'field-success', 'field-error', 'field-auto');
+
+      switch (status) {
+        case 'validating':
+          statusEl.className += ' status-validating';
+          statusEl.textContent = '⟳';
+          statusEl.title = 'Validating stream...';
+          input.classList.add('field-validating');
+          break;
+        case 'success':
+          statusEl.className += ' status-success';
+          statusEl.textContent = '✓';
+          statusEl.title = 'Stream URL validated successfully';
+          input.classList.add('field-success');
+          break;
+        case 'error':
+          statusEl.className += ' status-error';
+          statusEl.textContent = '✗';
+          statusEl.title = message || 'Validation error';
+          input.classList.add('field-error');
+          break;
+        case 'auto':
+          statusEl.className += ' status-auto';
+          statusEl.textContent = '✓';
+          statusEl.title = 'Auto-populated from stream metadata';
+          input.classList.add('field-auto');
+          autoPopulatedFields.add(fieldName);
+          break;
+      }
+    };
+
+
+    const clearAutoPopulatedStatus = (fieldName: string) => {
+      if (autoPopulatedFields.has(fieldName)) {
+        autoPopulatedFields.delete(fieldName);
+        statusElements[fieldName].className = 'field-status';
+        statusElements[fieldName].textContent = '';
+        statusElements[fieldName].title = '';
+        inputs[fieldName].classList.remove('field-auto');
+      }
+    };
+
+    const clearForm = () => {
+      // Clear all input values
+      Object.values(inputs).forEach(input => {
+        input.value = '';
+        input.classList.remove('field-validating', 'field-success', 'field-error', 'field-auto');
+      });
+
+      // Clear all status indicators
+      Object.values(statusElements).forEach(statusEl => {
+        statusEl.className = 'field-status';
+        statusEl.textContent = '';
+        statusEl.title = '';
+      });
+
+      // Clear auto-populated fields tracking
+      autoPopulatedFields.clear();
+
+      // Reset extraction state
+      isExtracting = false;
+
+      // Clear any pending validation timeout
+      if (validationTimeout) {
+        clearTimeout(validationTimeout);
+        validationTimeout = null;
+      }
+    };
+
+    // Metadata extraction and validation logic
+    const validateAndExtractMetadata = async (url: string) => {
+      if (!url.trim() || isExtracting) return;
+
+      isExtracting = true;
+      showFieldStatus('url', 'validating');
+
+      try {
+        // First validate the stream URL
+        const validationResult = await streamValidator.validateStream(url);
+        
+        if (!validationResult.isValid) {
+          showFieldStatus('url', 'error', validationResult.error?.message);
+          isExtracting = false;
+          return;
+        }
+
+        showFieldStatus('url', 'success');
+
+        // Extract metadata
+        const metadataResult = await metadataExtractor.extractMetadata(url);
+        
+        if (metadataResult.status === MetadataExtractionStatus.SUCCESS && metadataResult.metadata) {
+          const metadata = metadataResult.metadata;
+          
+          // Auto-populate fields if they're empty
+          if (metadata.name && !inputs.name.value.trim()) {
+            inputs.name.value = metadata.name;
+            showFieldStatus('name', 'auto');
+          }
+          
+          if (metadata.favicon && !inputs.favicon.value.trim()) {
+            inputs.favicon.value = metadata.favicon;
+            showFieldStatus('favicon', 'auto');
+          }
+          
+          if (metadata.homepage && !inputs.homepage.value.trim()) {
+            inputs.homepage.value = metadata.homepage;
+            showFieldStatus('homepage', 'auto');
+          }
+          
+          if (metadata.bitrate && !inputs.bitrate.value.trim()) {
+            inputs.bitrate.value = metadata.bitrate.toString();
+            showFieldStatus('bitrate', 'auto');
+          }
+          
+          if (metadata.countryCode && !inputs.country.value.trim()) {
+            inputs.country.value = metadata.countryCode;
+            showFieldStatus('country', 'auto');
+          }
+        }
+      } catch (error) {
+        console.error('[ModalManager] Metadata extraction error:', error);
+        showFieldStatus('url', 'error', 'Validation failed');
+      } finally {
+        isExtracting = false;
+      }
+    };
+
+    // URL input validation with debouncing
+    inputs.url.addEventListener('input', () => {
+      // Clear previous timeout
+      if (validationTimeout) {
+        clearTimeout(validationTimeout);
+      }
+      
+      // Clear status while typing
+      statusElements.url.textContent = '';
+      statusElements.url.className = 'field-status';
+      inputs.url.classList.remove('field-validating', 'field-success', 'field-error');
+
+      const url = inputs.url.value.trim();
+      if (url) {
+        // Debounced validation after 1 second of no typing
+        validationTimeout = setTimeout(() => {
+          validateAndExtractMetadata(url);
+        }, 1000);
+      }
+    });
+
+    // Clear auto-populated status when user manually edits fields
+    ['name', 'favicon', 'homepage', 'bitrate', 'country'].forEach(fieldName => {
+      inputs[fieldName].addEventListener('input', () => {
+        clearAutoPopulatedStatus(fieldName);
+      });
+    });
+
     // Handle form submission
-    form.addEventListener('submit', (event) => {
+    form.addEventListener('submit', async (event) => {
       event.preventDefault();
+      
+      // Prevent submission during extraction
+      if (isExtracting) {
+        return; // Visual indicator already shows validation in progress
+      }
       
       // Validate required fields
       if (!inputs.url.value.trim() || !inputs.name.value.trim()) {
+        // Highlight missing required fields
+        if (!inputs.url.value.trim()) {
+          inputs.url.classList.add('field-error');
+        }
+        if (!inputs.name.value.trim()) {
+          inputs.name.classList.add('field-error');
+        }
+        return;
+      }
+
+      // Final URL validation before submission
+      try {
+        const finalValidation = await streamValidator.validateStream(inputs.url.value.trim());
+        if (!finalValidation.isValid) {
+          showFieldStatus('url', 'error', finalValidation.error?.message);
+          return;
+        }
+      } catch (error) {
+        showFieldStatus('url', 'error', 'Could not validate stream URL');
         return;
       }
 
@@ -480,7 +706,11 @@ export class ModalManager {
         }
       });
 
+      // Call the callback to add the station
       onAdd(stationData);
+      
+      // Clear the form after successful submission
+      clearForm();
     });
 
     return form;

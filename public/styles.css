@@ -4409,6 +4409,13 @@ body.view-settings .search-view {
     color: var(--text-secondary);
 }
 
+.form-label-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
 .form-group input {
     padding: 0.5rem;
     border: 1px solid var(--border-color);
@@ -4416,6 +4423,8 @@ body.view-settings .search-view {
     background: var(--bg-primary);
     color: var(--text-primary);
     font-size: 0.875rem;
+    box-sizing: border-box;
+    width: 100%;
 }
 
 .form-group input:focus {
