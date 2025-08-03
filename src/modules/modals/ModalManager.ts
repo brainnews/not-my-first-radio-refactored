@@ -406,12 +406,12 @@ export class ModalManager {
   /**
    * Show add station modal
    */
-  showAddStation(onAdd: (stationData: any) => void): void {
-    const content = this.createAddStationForm(onAdd);
+  showAddStation(onAdd: (stationData: any) => void, prefilledData?: any): void {
+    const content = this.createAddStationForm(onAdd, prefilledData);
     
     this.open({
       type: 'add-station',
-      title: 'Add Station Manually',
+      title: prefilledData ? 'Add Station from Bookmarklet' : 'Add Station Manually',
       content,
       size: 'medium'
     });
@@ -420,7 +420,7 @@ export class ModalManager {
   /**
    * Create enhanced add station form with metadata extraction and validation
    */
-  private createAddStationForm(onAdd: (stationData: any) => void): HTMLElement {
+  private createAddStationForm(onAdd: (stationData: any) => void, prefilledData?: any): HTMLElement {
     const form = createElement('form', { className: 'add-station-form' });
     const inputs: { [key: string]: HTMLInputElement } = {};
     const statusElements: { [key: string]: HTMLElement } = {};
@@ -568,6 +568,34 @@ export class ModalManager {
         validationTimeout = null;
       }
     };
+
+    // Pre-fill fields if data is provided (e.g., from bookmarklet)
+    if (prefilledData) {
+      if (prefilledData.url) {
+        inputs.url.value = prefilledData.url;
+        showFieldStatus('url', 'auto');
+      }
+      if (prefilledData.name) {
+        inputs.name.value = prefilledData.name;
+        showFieldStatus('name', 'auto');
+      }
+      if (prefilledData.favicon) {
+        inputs.favicon.value = prefilledData.favicon;
+        showFieldStatus('favicon', 'auto');
+      }
+      if (prefilledData.homepage) {
+        inputs.homepage.value = prefilledData.homepage;
+        showFieldStatus('homepage', 'auto');
+      }
+      if (prefilledData.bitrate) {
+        inputs.bitrate.value = prefilledData.bitrate.toString();
+        showFieldStatus('bitrate', 'auto');
+      }
+      if (prefilledData.countrycode) {
+        inputs.country.value = prefilledData.countrycode;
+        showFieldStatus('country', 'auto');
+      }
+    }
 
     // Metadata extraction and validation logic
     const validateAndExtractMetadata = async (url: string) => {

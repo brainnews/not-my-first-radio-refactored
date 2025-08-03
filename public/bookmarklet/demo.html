@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KQED Public Radio - Demo Station</title>
+    <meta name="description" content="Listen to KQED 88.5 FM - Northern California's premier public radio station featuring news, classical music, and educational programming.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📻</text></svg>">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .station-logo {
+            font-size: 4rem;
+            margin-bottom: 10px;
+        }
+
+        .station-name {
+            font-size: 2.5rem;
+            margin: 0 0 10px 0;
+            font-weight: 700;
+        }
+
+        .frequency {
+            font-size: 1.2rem;
+            opacity: 0.8;
+            margin-bottom: 20px;
+        }
+
+        .player-section {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 25px;
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        .live-indicator {
+            display: inline-block;
+            background: #ff4444;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        .audio-player {
+            width: 100%;
+            max-width: 400px;
+            margin: 20px 0;
+        }
+
+        .stream-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .stream-card {
+            background: rgba(255,255,255,0.1);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .stream-card h3 {
+            margin: 0 0 10px 0;
+            color: #4fc3f7;
+        }
+
+        .stream-link {
+            color: #81c784;
+            text-decoration: none;
+            word-break: break-all;
+            font-size: 0.9rem;
+        }
+
+        .stream-link:hover {
+            text-decoration: underline;
+        }
+
+        .instructions {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+
+        .instructions h3 {
+            color: #ffeb3b;
+            margin-bottom: 15px;
+        }
+
+        .bookmarklet-demo {
+            background: #4caf50;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            text-decoration: none;
+            display: inline-block;
+            margin: 10px;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        .bookmarklet-demo:hover {
+            background: #45a049;
+        }
+
+        .additional-streams {
+            margin-top: 30px;
+        }
+
+        .hidden-stream {
+            display: none;
+        }
+
+        .variable-streams {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+        }
+
+        .code-snippet {
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            margin: 15px 0;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="station-logo">📻</div>
+            <h1 class="station-name">KQED Public Radio</h1>
+            <div class="frequency">88.5 FM • Northern California</div>
+            <p>Your trusted source for news, classical music, and educational programming</p>
+        </div>
+
+        <div class="player-section">
+            <div class="live-indicator">🔴 LIVE</div>
+            <h2>Now Playing: Morning Edition</h2>
+            
+            <!-- Primary audio stream -->
+            <audio controls class="audio-player">
+                <source src="https://streams.kqed.org/kqedradio" type="audio/mpeg">
+                <source src="https://streams.kqed.org/kqedradio.m3u8" type="application/x-mpegURL">
+                Your browser does not support the audio element.
+            </audio>
+            
+            <!-- Additional hidden audio element for testing -->
+            <audio class="hidden-stream">
+                <source src="https://live-radio01.mediahubaustralia.com/2LRW/mp3/" type="audio/mp3">
+            </audio>
+        </div>
+
+        <div class="stream-info">
+            <div class="stream-card">
+                <h3>High Quality Stream</h3>
+                <div>320 kbps MP3</div>
+                <a href="https://streams.kqed.org/kqedradio" class="stream-link">
+                    https://streams.kqed.org/kqedradio
+                </a>
+            </div>
+            
+            <div class="stream-card">
+                <h3>Mobile Stream</h3>
+                <div>128 kbps AAC</div>
+                <a href="https://mobile.kqed.org/stream.aac" class="stream-link">
+                    https://mobile.kqed.org/stream.aac
+                </a>
+            </div>
+            
+            <div class="stream-card">
+                <h3>HLS Stream</h3>
+                <div>Adaptive Bitrate</div>
+                <a href="https://streams.kqed.org/kqedradio.m3u8" class="stream-link">
+                    https://streams.kqed.org/kqedradio.m3u8
+                </a>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>🔧 Test the Radio Stream Detector</h3>
+            <p>This demo page contains multiple audio streams that the bookmarklet should detect:</p>
+            <ul>
+                <li><strong>HTML5 Audio Elements:</strong> The player above contains MP3 and M3U8 sources</li>
+                <li><strong>Direct Stream Links:</strong> The links in the stream info cards</li>
+                <li><strong>JavaScript Variables:</strong> Hidden stream URLs in page scripts</li>
+                <li><strong>Hidden Audio:</strong> Additional audio element for multiple stream testing</li>
+            </ul>
+            
+            <p><strong>To test:</strong> Install the bookmarklet from the <a href="install.html" style="color: #ffeb3b;">installation page</a>, then click it while on this page. You should see multiple streams detected!</p>
+            
+            <a href="javascript:alert('Install the bookmarklet first by visiting the installation page!');" class="bookmarklet-demo">
+                📌 Simulate Bookmarklet Click
+            </a>
+        </div>
+
+        <div class="variable-streams">
+            <h3>JavaScript Stream Variables (for testing)</h3>
+            <div class="code-snippet">
+                window.streamUrl = "https://streams.kqed.org/kqedradio";<br>
+                window.audioUrl = "https://mobile.kqed.org/stream.aac";<br>
+                window.playlistUrl = "https://streams.kqed.org/playlist.m3u";
+            </div>
+            <p><em>These variables are actually set on the page for the bookmarklet to detect.</em></p>
+        </div>
+
+        <div class="additional-streams">
+            <h3>Expected Detection Results</h3>
+            <p>When you run the bookmarklet on this page, it should detect:</p>
+            <ul>
+                <li>3-4 audio streams from HTML5 elements</li>
+                <li>3 stream links from the cards above</li>
+                <li>3 JavaScript variables with stream URLs</li>
+                <li><strong>Total:</strong> 6-10 unique streams (duplicates removed)</li>
+            </ul>
+            
+            <p><strong>Expected metadata:</strong></p>
+            <ul>
+                <li><strong>Station Name:</strong> "KQED Public Radio"</li>
+                <li><strong>Homepage:</strong> Current page URL</li>
+                <li><strong>Favicon:</strong> Radio emoji favicon</li>
+                <li><strong>Country:</strong> US (from lang attribute)</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Set up JavaScript variables that the bookmarklet should detect
+        window.streamUrl = "https://streams.kqed.org/kqedradio";
+        window.audioUrl = "https://mobile.kqed.org/stream.aac"; 
+        window.playlistUrl = "https://streams.kqed.org/playlist.m3u";
+        
+        // Add some interactivity
+        document.querySelector('.bookmarklet-demo').addEventListener('click', function(e) {
+            e.preventDefault();
+            alert('This is just a demo button. To actually test the bookmarklet:\n\n1. Go to the installation page\n2. Install the bookmarklet\n3. Come back to this page\n4. Click the bookmarklet in your bookmarks bar\n\nYou should see multiple streams detected!');
+        });
+
+        // Log some info for debugging
+        console.log('Demo page loaded with stream variables:', {
+            streamUrl: window.streamUrl,
+            audioUrl: window.audioUrl,
+            playlistUrl: window.playlistUrl
+        });
+    </script>
+</body>
+</html>

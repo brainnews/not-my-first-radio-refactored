@@ -125,6 +125,9 @@ export class App {
       // Handle shared stations from URL (if any)
       await this.handleSharedStations();
       
+      // Handle add station parameter from bookmarklet
+      await this.handleAddStationParameter();
+      
       // Initial UI setup
       this.setupInitialUI();
 
@@ -282,6 +285,55 @@ export class App {
       
       // Still clear parameters to prevent repeated attempts
       sharingService.clearShareParams();
+    }
+  }
+
+  /**
+   * Handle add station parameter from bookmarklet
+   */
+  private async handleAddStationParameter(): Promise<void> {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const addParam = urlParams.get('add');
+      
+      if (!addParam) {
+        return; // No add parameter found
+      }
+
+      console.log('[App] Processing add station parameter from bookmarklet');
+
+      // Parse the station data
+      let stationData;
+      try {
+        stationData = JSON.parse(decodeURIComponent(addParam));
+      } catch (parseError) {
+        console.error('[App] Failed to parse add station data:', parseError);
+        this.notificationManager.error('Invalid station data from bookmarklet');
+        return;
+      }
+
+      // Validate required fields
+      if (!stationData || !stationData.url || !stationData.name) {
+        console.error('[App] Invalid station data structure:', stationData);
+        this.notificationManager.error('Incomplete station data from bookmarklet');
+        return;
+      }
+
+      // Clear the URL parameter to prevent re-processing
+      urlParams.delete('add');
+      const newUrl = window.location.pathname + (urlParams.toString() ? '?' + urlParams.toString() : '');
+      window.history.replaceState({}, document.title, newUrl);
+
+      // Show the add station modal with pre-filled data
+      this.modalManager.showAddStation((finalStationData) => {
+        eventManager.emit('station:add', finalStationData);
+      }, stationData);
+
+      console.log('[App] Opened add station modal with bookmarklet data');
+
+    } catch (error) {
+      console.error('[App] Error processing add station parameter:', error);
+      this.notificationManager.error('Failed to process bookmarklet data');
     }
   }
 

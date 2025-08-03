@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radio Stream Detector - Bookmarklet Installation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4c6ef5 0%, #5c7cfa 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .feature-list {
+            background: #f8f9ff;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+
+        .feature-list h3 {
+            color: #4c6ef5;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .feature-list ul {
+            list-style: none;
+        }
+
+        .feature-list li {
+            padding: 8px 0;
+            position: relative;
+            padding-left: 25px;
+        }
+
+        .feature-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #51cf66;
+            font-weight: bold;
+        }
+
+        .bookmarklet-section {
+            background: #fff3cd;
+            border: 2px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        .bookmarklet-section h3 {
+            color: #e17055;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .bookmarklet-link {
+            display: inline-block;
+            background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
+            color: white;
+            padding: 15px 30px;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin: 10px;
+            box-shadow: 0 4px 15px rgba(0,184,148,0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .bookmarklet-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,184,148,0.4);
+        }
+
+        .instruction-step {
+            margin-bottom: 30px;
+            padding: 20px;
+            border-left: 4px solid #4c6ef5;
+            background: #f8f9ff;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .instruction-step h4 {
+            color: #4c6ef5;
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        .instruction-step p {
+            margin-bottom: 10px;
+        }
+
+        .browser-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .browser-tab {
+            padding: 10px 20px;
+            background: #e9ecef;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            border-radius: 8px 8px 0 0;
+            margin-right: 5px;
+            transition: background 0.2s;
+        }
+
+        .browser-tab.active {
+            background: #4c6ef5;
+            color: white;
+        }
+
+        .browser-content {
+            display: none;
+            padding: 20px;
+            background: #f8f9ff;
+            border-radius: 0 8px 8px 8px;
+        }
+
+        .browser-content.active {
+            display: block;
+        }
+
+        .demo-section {
+            background: #e3f2fd;
+            border-radius: 8px;
+            padding: 25px;
+            margin: 30px 0;
+        }
+
+        .demo-section h3 {
+            color: #1976d2;
+            margin-bottom: 15px;
+        }
+
+        .demo-link {
+            display: inline-block;
+            background: #1976d2;
+            color: white;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 6px;
+            margin: 5px;
+        }
+
+        .demo-link:hover {
+            background: #1565c0;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+
+        .warning strong {
+            color: #d63384;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 8px;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .browser-tabs {
+                flex-wrap: wrap;
+            }
+
+            .browser-tab {
+                font-size: 0.9rem;
+                padding: 8px 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎵 Radio Stream Detector</h1>
+            <p>Instantly add radio streams to your collection from any website</p>
+        </div>
+
+        <div class="content">
+            <div class="feature-list">
+                <h3>What does this bookmarklet do?</h3>
+                <ul>
+                    <li>Automatically detects audio streams on web pages</li>
+                    <li>Extracts station names and metadata from the current page</li>
+                    <li>Opens your radio app with pre-filled station information</li>
+                    <li>Works on radio station websites, streaming services, and podcast sites</li>
+                    <li>Supports multiple audio formats (MP3, AAC, M3U8, and more)</li>
+                </ul>
+            </div>
+
+            <div class="bookmarklet-section">
+                <h3>📌 Drag this link to your bookmarks bar:</h3>
+                <a href="javascript:(function(){const t={baseUrl:&quot;https://notmyfirstradio.com&quot;,streamPatterns:[/\.mp3(\?.*)?$/i,/\.aac(\?.*)?$/i,/\.m3u8(\?.*)?$/i,/\.m3u(\?.*)?$/i,/\.pls(\?.*)?$/i,/\/stream(\?.*)?$/i,/\/live(\?.*)?$/i,/\/radio(\?.*)?$/i,/icecast/i,/shoutcast/i],excludeDomains:[&quot;youtube.com&quot;,&quot;youtu.be&quot;,&quot;spotify.com&quot;,&quot;soundcloud.com&quot;,&quot;apple.com&quot;,&quot;music.amazon.com&quot;,&quot;pandora.com&quot;,&quot;tidal.com&quot;],maxStreams:10,uiTimeout:1e4},e={isStreamUrl:function(e){if(!e||&quot;string&quot;!=typeof e)return!1;try{const n=new URL(e);return!t.excludeDomains.some(t=&gt;n.hostname.includes(t))&amp;&amp;t.streamPatterns.some(t=&gt;t.test(e))}catch(t){return!1}},getDomain:function(t){try{return new URL(t).hostname}catch(t){return&quot;&quot;}},cleanStationName:function(t){return t?t.trim().replace(/\s+/g,&quot; &quot;).replace(/[^\w\s\-\.]/g,&quot;&quot;).substring(0,100):&quot;&quot;},getFaviconUrl:function(){const t=[&quot;link[rel=\&quot;icon\&quot;]&quot;,'link[rel=&quot;shortcut icon&quot;]','link[rel=&quot;apple-touch-icon&quot;]','link[rel=&quot;apple-touch-icon-precomposed&quot;]'];for(let e of t){const t=document.querySelector(e);if(t&amp;&amp;t.href)return t.href}return window.location.origin+&quot;/favicon.ico&quot;},makeAbsolute:function(t){if(!t)return&quot;&quot;;try{return new URL(t,window.location.href).href}catch(e){return t}}},n={findAudioStreams:function(){const t=[];return document.querySelectorAll(&quot;audio&quot;).forEach(n=&gt;{n.src&amp;&amp;e.isStreamUrl(n.src)&amp;&amp;t.push({url:e.makeAbsolute(n.src),element:n,type:&quot;audio-src&quot;}),n.querySelectorAll(&quot;source&quot;).forEach(o=&gt;{o.src&amp;&amp;e.isStreamUrl(o.src)&amp;&amp;t.push({url:e.makeAbsolute(o.src),element:n,type:&quot;audio-source&quot;,mimeType:o.type})})}),t},findStreamingLinks:function(){const t=[];return document.querySelectorAll(&quot;a[href]&quot;).forEach(n=&gt;{e.isStreamUrl(n.href)&amp;&amp;t.push({url:e.makeAbsolute(n.href),element:n,type:&quot;link&quot;,linkText:n.textContent.trim()})}),t},findJavaScriptStreams:function(){const t=[];return[&quot;streamUrl&quot;,&quot;audioUrl&quot;,&quot;radioUrl&quot;,&quot;streamSrc&quot;,&quot;playlistUrl&quot;].forEach(n=&gt;{try{window[n]&amp;&amp;e.isStreamUrl(window[n])&amp;&amp;t.push({url:e.makeAbsolute(window[n]),type:&quot;javascript-var&quot;,varName:n})}catch(t){}}),t},getAllStreams:function(){const t=[...this.findAudioStreams(),...this.findStreamingLinks(),...this.findJavaScriptStreams()],e=[],n=new Set;return t.forEach(t=&gt;{n.has(t.url)||(n.add(t.url),e.push(t))}),e.slice(0,t.maxStreams)}},o={getStationName:function(){const t=[()=&gt;{const t=document.querySelector('meta[property=&quot;og:title&quot;]');return t?t.content:null},()=&gt;document.title,()=&gt;{const t=document.querySelector(&quot;h1&quot;);return t?t.textContent:null},()=&gt;{const t=document.querySelector('meta[name=&quot;description&quot;]');return t?t.content:null}];for(let n of t)try{const t=n();if(t&amp;&amp;t.trim())return e.cleanStationName(t)}catch(t){continue}return e.cleanStationName(e.getDomain(window.location.href))},getHomepage:function(){return window.location.origin},getCountryCode:function(){const t=document.documentElement.lang||document.documentElement.getAttribute(&quot;xml:lang&quot;);return t&amp;&amp;t.includes(&quot;-&quot;)?t.split(&quot;-&quot;)[1].toUpperCase():null}},r={showNotification:function(t,e=&quot;info&quot;){const n=document.createElement(&quot;div&quot;);n.style.cssText=`position:fixed;top:20px;right:20px;background:${&quot;error&quot;===e?&quot;#f44336&quot;:&quot;success&quot;===e?&quot;#4caf50&quot;:&quot;#2196f3&quot;};color:white;padding:12px 20px;border-radius:4px;font-family:Arial,sans-serif;font-size:14px;z-index:999999;box-shadow:0 2px 8px rgba(0,0,0,0.2);max-width:300px;word-wrap:break-word;`,n.textContent=t,document.body.appendChild(n),setTimeout(()=&gt;{n.parentNode&amp;&amp;n.parentNode.removeChild(n)},5e3)},showStreamSelection:function(n,o){const r=document.createElement(&quot;div&quot;);r.style.cssText=&quot;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:999998;display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;&quot;;const c=document.createElement(&quot;div&quot;);c.style.cssText=&quot;background:white;border-radius:8px;padding:20px;max-width:500px;max-height:70vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,0.3);&quot;;const s=document.createElement(&quot;h3&quot;);s.textContent=&quot;Select Stream to Add&quot;,s.style.cssText=&quot;margin:0 0 15px 0;color:#333;&quot;,c.appendChild(s);const l=document.createElement(&quot;div&quot;);n.forEach((t,n)=&gt;{const r=document.createElement(&quot;div&quot;);r.style.cssText=&quot;padding:10px;border:1px solid #ddd;border-radius:4px;margin-bottom:8px;cursor:pointer;transition:background 0.2s;&quot;,r.innerHTML=`&lt;div style=&quot;font-weight:bold;margin-bottom:4px;&quot;&gt;${e.getDomain(t.url)}&lt;/div&gt;&lt;div style=&quot;font-size:12px;color:#666;word-break:break-all;&quot;&gt;${t.url}&lt;/div&gt;&lt;div style=&quot;font-size:11px;color:#999;margin-top:4px;&quot;&gt;Type: ${t.type}&lt;/div&gt;`,r.addEventListener(&quot;mouseenter&quot;,()=&gt;{r.style.background=&quot;#f5f5f5&quot;}),r.addEventListener(&quot;mouseleave&quot;,()=&gt;{r.style.background=&quot;white&quot;}),r.addEventListener(&quot;click&quot;,()=&gt;{document.body.removeChild(r),o(t)}),l.appendChild(r)}),c.appendChild(l);const i=document.createElement(&quot;button&quot;);i.textContent=&quot;Cancel&quot;,i.style.cssText=&quot;background:#ccc;color:#333;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;margin-top:15px;&quot;,i.addEventListener(&quot;click&quot;,()=&gt;{document.body.removeChild(r)}),c.appendChild(i),r.appendChild(c),document.body.appendChild(r),setTimeout(()=&gt;{r.parentNode&amp;&amp;r.parentNode.removeChild(r)},t.uiTimeout)}},c={createStationData:function(t){return{url:t.url,name:o.getStationName(),favicon:e.getFaviconUrl(),homepage:o.getHomepage(),countrycode:o.getCountryCode()}},generateAddUrl:function(e){return`${t.baseUrl}/?add=${encodeURIComponent(JSON.stringify(e))}`}};try{r.showNotification(&quot;Scanning page for audio streams...&quot;,&quot;info&quot;);const t=n.getAllStreams();if(0===t.length)return void r.showNotification(&quot;No audio streams found on this page&quot;,&quot;error&quot;);if(1===t.length){const e=c.createStationData(t[0]),n=c.generateAddUrl(e);return r.showNotification(&quot;Opening radio app with detected stream...&quot;,&quot;success&quot;),void window.open(n,&quot;_blank&quot;)}r.showStreamSelection(t,t=&gt;{const e=c.createStationData(t),n=c.generateAddUrl(e);r.showNotification(&quot;Opening radio app with selected stream...&quot;,&quot;success&quot;),window.open(n,&quot;_blank&quot;)})}catch(t){console.error(&quot;Bookmarklet error:&quot;,t),r.showNotification(&quot;Error detecting streams: &quot;+t.message,&quot;error&quot;)}})();" class="bookmarklet-link">🎵 Radio Stream Detector</a>
+                <p style="margin-top: 15px; font-size: 0.9rem; color: #666;">
+                    <strong>Can't drag?</strong> Right-click the link above and select "Bookmark this link" or "Add to bookmarks"
+                </p>
+            </div>
+
+            <div class="browser-tabs">
+                <button class="browser-tab active" onclick="showBrowserContent('chrome')">Chrome</button>
+                <button class="browser-tab" onclick="showBrowserContent('firefox')">Firefox</button>
+                <button class="browser-tab" onclick="showBrowserContent('safari')">Safari</button>
+                <button class="browser-tab" onclick="showBrowserContent('edge')">Edge</button>
+            </div>
+
+            <div id="chrome" class="browser-content active">
+                <div class="instruction-step">
+                    <h4>Step 1: Enable Bookmarks Bar</h4>
+                    <p>Press <strong>Ctrl+Shift+B</strong> (Windows/Linux) or <strong>Cmd+Shift+B</strong> (Mac) to show the bookmarks bar.</p>
+                </div>
+                <div class="instruction-step">
+                    <h4>Step 2: Add the Bookmarklet</h4>
+                    <p>Drag the "🎵 Radio Stream Detector" link above directly to your bookmarks bar.</p>
+                </div>
+                <div class="instruction-step">
+                    <h4>Step 3: Use the Bookmarklet</h4>
+                    <p>Visit any radio station website and click the bookmarklet in your bookmarks bar to detect streams!</p>
+                </div>
+            </div>
+
+            <div id="firefox" class="browser-content">
+                <div class="instruction-step">
+                    <h4>Step 1: Show Bookmarks Toolbar</h4>
+                    <p>Right-click on the top toolbar area and select "Bookmarks Toolbar" to show it.</p>
+                </div>
+                <div class="instruction-step">
+                    <h4>Step 2: Add the Bookmarklet</h4>
+                    <p>Drag the "🎵 Radio Stream Detector" link above to your bookmarks toolbar, or right-click it and select "Bookmark This Link".</p>
+                </div>
+                <div class="instruction-step">
+                    <h4>Step 3: Use the Bookmarklet</h4>
+                    <p>Visit any radio station website and click the bookmarklet to scan for streams!</p>
+                </div>
+            </div>
+
+            <div id="safari" class="browser-content">
+                <div class="instruction-step">
+                    <h4>Step 1: Show Favorites Bar</h4>
+                    <p>Go to View → Show Favorites Bar, or press <strong>Cmd+Shift+B</strong>.</p>
+                </div>
+                <div class="instruction-step">
+                    <h4>Step 2: Add the Bookmarklet</h4>
+                    <p>Drag the "🎵 Radio Stream Detector" link above to your Favorites Bar.</p>
+                </div>
+                <div class="instruction-step">
+                    <h4>Step 3: Use the Bookmarklet</h4>
+                    <p>Navigate to a radio station website and click the bookmarklet to detect audio streams!</p>
+                </div>
+            </div>
+
+            <div id="edge" class="browser-content">
+                <div class="instruction-step">
+                    <h4>Step 1: Show Favorites Bar</h4>
+                    <p>Press <strong>Ctrl+Shift+B</strong> to toggle the favorites bar visibility.</p>
+                </div>
+                <div class="instruction-step">
+                    <h4>Step 2: Add the Bookmarklet</h4>
+                    <p>Drag the "🎵 Radio Stream Detector" link above to your favorites bar.</p>
+                </div>
+                <div class="instruction-step">
+                    <h4>Step 3: Use the Bookmarklet</h4>
+                    <p>Visit radio station websites and click the bookmarklet to find their streams!</p>
+                </div>
+            </div>
+
+            <div class="demo-section">
+                <h3>🧪 Try it on these sample sites:</h3>
+                <p>Test the bookmarklet on these radio station websites:</p>
+                <a href="https://www.bbc.co.uk/sounds/play/live:bbc_radio_one" target="_blank" class="demo-link">BBC Radio 1</a>
+                <a href="https://www.npr.org/listen/live" target="_blank" class="demo-link">NPR Live</a>
+                <a href="https://tunein.com/" target="_blank" class="demo-link">TuneIn</a>
+                <a href="https://radio-browser.info/" target="_blank" class="demo-link">Radio Browser</a>
+            </div>
+
+            <div class="warning">
+                <strong>Note:</strong> The bookmarklet works best on websites that actually host audio streams. It won't work on sites like YouTube, Spotify, or other proprietary streaming services that use protected or embedded players.
+            </div>
+
+            <div class="feature-list">
+                <h3>How it works:</h3>
+                <ul>
+                    <li>Scans the current page for HTML5 audio elements</li>
+                    <li>Looks for streaming links (MP3, AAC, M3U8, etc.)</li>
+                    <li>Extracts the page title, favicon, and other metadata</li>
+                    <li>Opens your radio app with all the detected information pre-filled</li>
+                    <li>If multiple streams are found, shows a selection menu</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showBrowserContent(browser) {
+            // Hide all browser content
+            document.querySelectorAll('.browser-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.browser-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected browser content
+            document.getElementById(browser).classList.add('active');
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+    </script>
+</body>
+</html>
