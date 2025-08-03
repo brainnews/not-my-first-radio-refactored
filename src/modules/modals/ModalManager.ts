@@ -569,33 +569,6 @@ export class ModalManager {
       }
     };
 
-    // Pre-fill fields if data is provided (e.g., from bookmarklet)
-    if (prefilledData) {
-      if (prefilledData.url) {
-        inputs.url.value = prefilledData.url;
-        showFieldStatus('url', 'auto');
-      }
-      if (prefilledData.name) {
-        inputs.name.value = prefilledData.name;
-        showFieldStatus('name', 'auto');
-      }
-      if (prefilledData.favicon) {
-        inputs.favicon.value = prefilledData.favicon;
-        showFieldStatus('favicon', 'auto');
-      }
-      if (prefilledData.homepage) {
-        inputs.homepage.value = prefilledData.homepage;
-        showFieldStatus('homepage', 'auto');
-      }
-      if (prefilledData.bitrate) {
-        inputs.bitrate.value = prefilledData.bitrate.toString();
-        showFieldStatus('bitrate', 'auto');
-      }
-      if (prefilledData.countrycode) {
-        inputs.country.value = prefilledData.countrycode;
-        showFieldStatus('country', 'auto');
-      }
-    }
 
     // Metadata extraction and validation logic
     const validateAndExtractMetadata = async (url: string) => {
@@ -655,6 +628,35 @@ export class ModalManager {
         isExtracting = false;
       }
     };
+
+    // Pre-fill fields if data is provided (e.g., from bookmarklet)
+    if (prefilledData) {
+      if (prefilledData.url) {
+        inputs.url.value = prefilledData.url;
+        // Trigger actual validation instead of showing 'auto' status immediately
+        validateAndExtractMetadata(prefilledData.url);
+      }
+      if (prefilledData.name) {
+        inputs.name.value = prefilledData.name;
+        showFieldStatus('name', 'auto');
+      }
+      if (prefilledData.favicon) {
+        inputs.favicon.value = prefilledData.favicon;
+        showFieldStatus('favicon', 'auto');
+      }
+      if (prefilledData.homepage) {
+        inputs.homepage.value = prefilledData.homepage;
+        showFieldStatus('homepage', 'auto');
+      }
+      if (prefilledData.bitrate) {
+        inputs.bitrate.value = prefilledData.bitrate.toString();
+        showFieldStatus('bitrate', 'auto');
+      }
+      if (prefilledData.countrycode) {
+        inputs.country.value = prefilledData.countrycode;
+        showFieldStatus('country', 'auto');
+      }
+    }
 
     // URL input validation with debouncing
     inputs.url.addEventListener('input', () => {

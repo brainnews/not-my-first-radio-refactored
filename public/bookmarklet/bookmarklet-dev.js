@@ -349,64 +349,89 @@
          */
         showStreamSelection: function(streams, callback) {
             const overlay = document.createElement('div');
+            let isRemoved = false; // Flag to prevent multiple removals
+            
+            // Safe removal function
+            const safeRemoveOverlay = () => {
+                if (!isRemoved && overlay.parentNode) {
+                    overlay.parentNode.removeChild(overlay);
+                    isRemoved = true;
+                }
+            };
+            
+            // Apply modal styles matching the main app
             overlay.style.cssText = `
                 position: fixed;
                 top: 0;
                 left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0,0,0,0.7);
+                right: 0;
+                bottom: 0;
+                background: rgba(0, 0, 0, 0.7);
                 z-index: 999998;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-family: Arial, sans-serif;
+                font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                backdrop-filter: blur(4px);
             `;
             
             const modal = document.createElement('div');
             modal.style.cssText = `
-                background: white;
+                background: #2c2c2c;
                 border-radius: 8px;
-                padding: 20px;
+                padding: 24px;
+                width: 90%;
                 max-width: 500px;
                 max-height: 70vh;
                 overflow-y: auto;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+                border: 1px solid #444444;
+                color: #ffffff;
             `;
             
             const title = document.createElement('h3');
             title.textContent = 'Select Stream to Add';
-            title.style.cssText = 'margin: 0 0 15px 0; color: #333;';
+            title.style.cssText = `
+                margin: 0 0 20px 0; 
+                color: #ffffff;
+                font-size: 1.25rem;
+                font-weight: 600;
+            `;
             modal.appendChild(title);
             
             const list = document.createElement('div');
+            list.style.cssText = 'margin-bottom: 20px;';
+            
             streams.forEach((stream, index) => {
                 const item = document.createElement('div');
                 item.style.cssText = `
-                    padding: 10px;
-                    border: 1px solid #ddd;
-                    border-radius: 4px;
+                    padding: 12px;
+                    border: 1px solid #444444;
+                    border-radius: 6px;
                     margin-bottom: 8px;
                     cursor: pointer;
-                    transition: background 0.2s;
+                    transition: all 0.2s ease;
+                    background: #1a1a1a;
                 `;
                 
                 item.innerHTML = `
-                    <div style="font-weight: bold; margin-bottom: 4px;">${Utils.getDomain(stream.url)}</div>
-                    <div style="font-size: 12px; color: #666; word-break: break-all;">${stream.url}</div>
-                    <div style="font-size: 11px; color: #999; margin-top: 4px;">Type: ${stream.type}</div>
+                    <div style="font-weight: 600; margin-bottom: 6px; color: #ffffff;">${Utils.getDomain(stream.url)}</div>
+                    <div style="font-size: 12px; color: #a0a0a0; word-break: break-all; margin-bottom: 4px;">${stream.url}</div>
+                    <div style="font-size: 11px; color: #666666;">Type: ${stream.type}</div>
                 `;
                 
                 item.addEventListener('mouseenter', () => {
-                    item.style.background = '#f5f5f5';
+                    item.style.background = '#333333';
+                    item.style.borderColor = '#9151F0';
                 });
                 
                 item.addEventListener('mouseleave', () => {
-                    item.style.background = 'white';
+                    item.style.background = '#1a1a1a';
+                    item.style.borderColor = '#444444';
                 });
                 
                 item.addEventListener('click', () => {
-                    document.body.removeChild(overlay);
+                    safeRemoveOverlay();
                     callback(stream);
                 });
                 
@@ -418,27 +443,36 @@
             const cancelBtn = document.createElement('button');
             cancelBtn.textContent = 'Cancel';
             cancelBtn.style.cssText = `
-                background: #ccc;
-                color: #333;
-                border: none;
+                background: transparent;
+                color: #ffffff;
+                border: 1px solid #444444;
                 padding: 10px 20px;
                 border-radius: 4px;
                 cursor: pointer;
-                margin-top: 15px;
+                font-family: inherit;
+                font-size: 14px;
+                transition: all 0.2s ease;
             `;
+            
+            cancelBtn.addEventListener('mouseenter', () => {
+                cancelBtn.style.background = '#444444';
+            });
+            
+            cancelBtn.addEventListener('mouseleave', () => {
+                cancelBtn.style.background = 'transparent';
+            });
+            
             cancelBtn.addEventListener('click', () => {
-                document.body.removeChild(overlay);
+                safeRemoveOverlay();
             });
             
             modal.appendChild(cancelBtn);
             overlay.appendChild(modal);
             document.body.appendChild(overlay);
             
-            // Auto-close after timeout
+            // Auto-close after timeout with safe removal
             setTimeout(() => {
-                if (overlay.parentNode) {
-                    overlay.parentNode.removeChild(overlay);
-                }
+                safeRemoveOverlay();
             }, CONFIG.uiTimeout);
         }
     };
