@@ -5,6 +5,7 @@
 import { createElement, querySelector } from '@/utils/dom';
 import { eventManager } from '@/utils/events';
 import { clearAllStorage } from '@/utils/storage';
+import { STREAM_SCANNER_BOOKMARKLET } from '@/constants/bookmarklet';
 
 export interface SettingsViewConfig {
   container?: HTMLElement;
@@ -24,8 +25,18 @@ export interface SettingItem {
   id: string;
   label: string;
   description?: string;
-  type: 'button' | 'info' | 'info-with-links';
+  type: 'button' | 'info' | 'info-with-links' | 'bookmarklet-widget';
   action?: () => void;
+  bookmarkletData?: {
+    name: string;
+    code: string;
+    instructions: {
+      desktop: string;
+      mobile: string;
+      fallback: string;
+    };
+    usage: readonly string[];
+  };
 }
 
 /**
@@ -103,6 +114,23 @@ export class SettingsView {
         ]
       });
     }
+
+    // Add browser tools section
+    this.sections.push({
+      id: 'browser-tools',
+      title: 'Browser Tools',
+      description: 'Enhance your station discovery with browser tools',
+      icon: 'extension',
+      settings: [
+        {
+          id: 'streamScannerWidget',
+          label: 'Stream Scanner',
+          description: 'Automatically detect and import radio streams from their websites (beta)',
+          type: 'bookmarklet-widget',
+          bookmarkletData: STREAM_SCANNER_BOOKMARKLET
+        }
+      ]
+    });
 
     // Add data management section if enabled
     if (this.config.showDataManagement) {
@@ -277,6 +305,9 @@ export class SettingsView {
       case 'info-with-links':
         this.createInfoWithLinksControl(settingControl, setting);
         break;
+      case 'bookmarklet-widget':
+        this.createBookmarkletWidgetControl(settingControl, setting);
+        break;
     }
 
     settingElement.appendChild(settingControl);
@@ -308,6 +339,53 @@ export class SettingsView {
       setting.description || ''
     ]);
     container.appendChild(info);
+  }
+
+  /**
+   * Create bookmarklet widget control
+   */
+  private createBookmarkletWidgetControl(container: HTMLElement, setting: SettingItem): void {
+    if (!setting.bookmarkletData) return;
+
+    const data = setting.bookmarkletData;
+    const widget = createElement('div', { className: 'bookmarklet-widget' });
+
+    // Bookmarklet section
+    const bookmarkletSection = createElement('div', { className: 'bookmarklet-section' });
+    
+    const dragInstruction = createElement('p', { className: 'bookmarklet-instruction' }, [
+      'Drag this link to your bookmarks bar:'
+    ]);
+    bookmarkletSection.appendChild(dragInstruction);
+
+    const bookmarkletLink = createElement('a', {
+      href: data.code,
+      className: 'bookmarklet-link',
+      draggable: true
+    }, [data.name]);
+    bookmarkletSection.appendChild(bookmarkletLink);
+
+    // const fallbackText = createElement('p', { className: 'bookmarklet-fallback' }, [
+    //   data.instructions.fallback
+    // ]);
+    // bookmarkletSection.appendChild(fallbackText);
+
+    widget.appendChild(bookmarkletSection);
+
+    // // Usage instructions
+    // const usageSection = createElement('div', { className: 'bookmarklet-usage' });
+    // const usageTitle = createElement('h5', {}, ['How to use:']);
+    // usageSection.appendChild(usageTitle);
+
+    // const usageList = createElement('ol', { className: 'usage-list' });
+    // data.usage.forEach(step => {
+    //   const listItem = createElement('li', {}, [step]);
+    //   usageList.appendChild(listItem);
+    // });
+    // usageSection.appendChild(usageList);
+
+    // widget.appendChild(usageSection);
+    container.appendChild(widget);
   }
 
   /**

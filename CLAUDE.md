@@ -79,6 +79,29 @@ stationManager.addStation(station); // Creates tight coupling
 - Action buttons for interactive notifications
 - Queue management for multiple simultaneous notifications
 
+**AchievementManager** (`src/modules/achievements/AchievementManager.ts`):
+- Comprehensive gamification system with categorized achievements
+- Collection achievements (first station, 5/20/50 stations)
+- Discovery achievements (world explorer, quality hunter)  
+- Listening achievements (music lover, night owl, early bird)
+- Social achievements (sharing stations) and technical achievements (data management)
+- Progress tracking with persistent storage and user statistics
+- Real-time achievement unlocking with notification integration
+
+**UserManager** (`src/modules/user/UserManager.ts`):
+- Username management with validation and profanity filtering
+- Auto-generated usernames with positive adjective/noun combinations
+- User statistics tracking (total stations, play time, countries explored)
+- Cross-tab storage synchronization for user data
+- Achievement progress integration and listening time coordination
+
+**Router** (`src/router/Router.ts`):
+- Lightweight client-side routing with history management
+- View navigation between library, search, and settings
+- Browser back/forward button support
+- URL state management for bookmarking and sharing
+- Event-driven view coordination with existing UI system
+
 ### Radio Browser API Integration
 
 **Service**: `src/services/api/radioBrowserApi.ts`
@@ -95,40 +118,89 @@ radioBrowserApi.getTopStations(limit)          // Popular stations
 radioBrowserApi.getStationsByCountry(code)     // Country-specific stations
 ```
 
+### Metadata Extraction System
+
+**Service**: `src/services/metadata/MetadataExtractor.ts`
+- **ICY Metadata Extraction**: Extracts station name, description, bitrate, genre from stream headers
+- **Audio Format Detection**: Identifies stream format (MP3, AAC, OGG) from HTTP headers
+- **Favicon Discovery**: Attempts to find station icons from common favicon paths
+- **Domain Analysis**: Infers country information from TLD and domain patterns
+- **Radio Browser Fallback**: Uses Radio Browser API when direct extraction fails
+- **Multi-source Aggregation**: Combines data from multiple sources with intelligent priority
+- **Timeout Management**: Configurable timeouts with graceful fallback handling
+
+### Enhanced Sharing System
+
+**Service**: `src/services/sharing/SharingService.ts`
+- **Custom URL Shortening**: Integration with `s.notmyfirstradio.com` for compact share URLs
+- **Station List Sharing**: Share individual stations or curated collections
+- **QR Code Generation**: Create QR codes for easy mobile sharing
+- **Username Integration**: Associate shared lists with user identities
+- **Mixed Station Types**: Support both Radio Browser stations (UUID-based) and manual stations (full data)
+- **URL Parameter Parsing**: Handle incoming shared station data from URLs
+
+### Bookmarklet Integration
+
+**Files**: `public/bookmarklet/bookmarklet.js`, `public/bookmarklet/install.html`
+- **Smart Stream Detection**: Automatically detects audio streams on any webpage
+- **Multiple Detection Methods**: Scans HTML audio elements, streaming links, and JavaScript variables
+- **Stream Validation**: Filters out non-radio services (YouTube, Spotify, etc.)
+- **Interactive Selection**: Modal interface for choosing from multiple detected streams
+- **Metadata Extraction**: Automatically extracts station name, favicon, and homepage
+- **One-Click Integration**: Opens main app with detected station pre-filled for addition
+
+### Curated Station Collections
+
+**Starter Packs**: `public/starter-packs/` 
+- **Genre Collections**: Pre-curated stations for ambient, blues, classical, jazz, K-pop, etc.
+- **Location-Based**: City-specific collections (Austin radio scene)
+- **Specialty Formats**: College radio, jungle/drum & bass, experimental noise
+- **Thumbnail Previews**: Visual collection browsing with genre artwork
+- **One-Click Import**: Easy bulk addition of thematic station groups
+
 ### State Management
 
 **Distributed State**: No central store - each module manages its own state and coordinates through events.
 
 **Storage**: Type-safe localStorage utilities (`src/utils/storage.ts`) with:
-- Enumerated keys (prevents typos): `StorageKeys.STATIONS`, `StorageKeys.USER_SETTINGS`
+- Enumerated keys (prevents typos): `StorageKeys.STATIONS`, `StorageKeys.USER_SETTINGS`, `StorageKeys.ACHIEVEMENTS`, `StorageKeys.USERNAME`, `StorageKeys.USER_STATS`, `StorageKeys.EXPLORED_COUNTRIES`, `StorageKeys.STATION_LISTENING_TIMES`
 - Automatic migrations for legacy data
-- Cross-tab synchronization
+- Cross-tab synchronization for real-time user data updates
 - Usage monitoring and quota management
 
 **Persistent Data**:
-- User stations and presets
+- User stations and presets with listening time tracking
+- Achievement progress and unlock status across categories
+- User statistics (play time, countries explored, stations added)
+- Username and user profile data
 - Settings and preferences  
-- Achievement progress and user stats
 - Shared station lists (from QR codes/URLs)
+- Per-station listening time analytics
 
 ### Event System
 
 **Central Events** (`src/utils/events.ts`):
 ```typescript
 // Station events
-'station:play' | 'station:pause' | 'station:add' | 'station:remove'
+'station:play' | 'station:pause' | 'station:add' | 'station:remove' | 'station:added'
 
 // Player events
-'player:state-changed' | 'player:volume-changed' | 'player:error'
+'player:state-changed' | 'player:volume-changed' | 'player:error' | 'player:listening-time'
 
 // Search events  
 'search:started' | 'search:completed' | 'search:error'
 
 // UI events
-'modal:open' | 'modal:close' | 'notification:show'
+'modal:open' | 'modal:close' | 'notification:show' | 'view:change'
 
 // Achievement events
-'achievements:unlock' | 'achievements:progress'
+'achievements:unlock' | 'achievements:progress' | 'achievements:check' | 'achievement:unlocked' | 'achievements:reset' | 'achievements:request-data'
+
+// User events
+'user:loaded' | 'user:username-changed' | 'user:username-error' | 'user:stats-updated' | 'user:stats-reset'
+
+// Batch events
+'batch:flush'
 ```
 
 **Event Listener Cleanup**: Always remove listeners in module `destroy()` methods to prevent memory leaks.
@@ -200,8 +272,9 @@ import { radioBrowserApi } from '@/services/api/radioBrowserApi';
 
 **Production Build**: Includes code splitting, asset optimization, PWA manifest generation
 **Legacy Support**: Configured for ES2015 compatibility
-**Bundle Analysis**: Manual chunks defined for vendor code and utilities
+**Bundle Analysis**: Manual chunks defined for vendor code (`qrcode`) and utilities
 **CSS Processing**: Includes hash-based asset naming for cache busting
+**Dependencies**: Core runtime dependencies include `jsqr` for QR code scanning and `qrcode` for QR generation
 
 ### Deployment
 

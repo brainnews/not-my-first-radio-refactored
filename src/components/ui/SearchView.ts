@@ -8,6 +8,7 @@ import { createElement, querySelector } from '@/utils/dom';
 import { eventManager } from '@/utils/events';
 import { getCountryIcon, getBitrateIcon, getVotesIcon } from '@/utils/icons';
 import { PlaceholderManager } from '@/utils/placeholderManager';
+import { STREAM_SCANNER_BOOKMARKLET } from '@/constants/bookmarklet';
 import { getStorageItem, setStorageItem, StorageKeys } from '@/utils/storage';
 import { ValidationProgress, StationValidationState, StationValidationStatus } from '@/types/validation';
 
@@ -883,12 +884,61 @@ export class SearchView {
   }
 
   /**
+   * Render empty search results with contextual messaging
+   */
+  private renderEmptySearchResults(): void {
+    const emptyContent = querySelector('.empty-state-content', this.container);
+    const hasQuery = this.currentQuery.trim().length > 0;
+    const hasFilters = !!(this.currentFilters.country || this.currentFilters.genre || this.currentFilters.minBitrate);
+    
+    if (hasQuery || hasFilters) {
+      // User searched but got no results - show Stream Scanner suggestion
+      emptyContent.innerHTML = `
+        <div class="no-results-message">
+          <span class="material-symbols-rounded no-results-icon">search_off</span>
+          <h3>No stations found</h3>
+          <p>Try different search terms or filters, or discover stations directly from radio websites.</p>
+          
+          <div class="stream-scanner-suggestion">
+            <div class="suggestion-icon">
+              <span class="material-symbols-rounded">find_in_page</span>
+            </div>
+            <div class="suggestion-content">
+              <h4>Try Stream Scanner</h4>
+              <p>Browse radio station websites and use Stream Scanner to automatically detect and add streams.</p>
+              <div class="bookmarklet-widget compact inline">
+                <p class="bookmarklet-instruction">Drag this to your bookmarks bar:</p>
+                <a href="${STREAM_SCANNER_BOOKMARKLET.code}" class="bookmarklet-link" draggable="true">${STREAM_SCANNER_BOOKMARKLET.name}</a>
+                <p class="bookmarklet-usage-text">Then visit radio station websites and click it!</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    } else {
+      // Default empty state - show starter packs
+      emptyContent.innerHTML = `
+        <p>Start typing to search, or explore these curated station collections</p>
+        <div class="starter-packs-grid" id="starter-packs-grid">
+          <div class="loading-indicator">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading starter packs...</div>
+          </div>
+        </div>
+      `;
+      // Reload starter packs for default state
+      this.loadStarterPacks();
+    }
+  }
+
+  /**
    * Render search results
    */
   private renderResults(): void {
     this.hideLoading();
 
     if (this.currentResults.length === 0) {
+      this.renderEmptySearchResults();
       this.emptyState.classList.remove('hidden');
       this.resultsContainer.classList.add('hidden');
       return;

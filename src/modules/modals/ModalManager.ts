@@ -8,6 +8,7 @@ import { eventManager } from '@/utils/events';
 import { metadataExtractor } from '@/services/metadata/MetadataExtractor';
 import { streamValidator } from '@/services/validation/streamValidator';
 import { MetadataExtractionStatus } from '@/types/metadata';
+import { STREAM_SCANNER_BOOKMARKLET } from '@/constants/bookmarklet';
 
 export interface ModalManagerConfig {
   closeOnEscape?: boolean;
@@ -421,6 +422,38 @@ export class ModalManager {
    * Create enhanced add station form with metadata extraction and validation
    */
   private createAddStationForm(onAdd: (stationData: any) => void, prefilledData?: any): HTMLElement {
+    const container = createElement('div', { className: 'add-station-container' });
+    
+    // Stream Scanner helper section (only show if not pre-filled from bookmarklet)
+    if (!prefilledData) {
+      const helperSection = createElement('div', { className: 'stream-scanner-helper' });
+      
+      const helperContent = createElement('div', { className: 'helper-content' });
+      const helperText = createElement('p', {}, [
+        'Use'
+      ]);
+      
+      // Inline bookmarklet widget
+      const bookmarkletWidget = createElement('div', { className: 'bookmarklet-widget compact' });
+
+      const bookmarkletLink = createElement('a', {
+        href: STREAM_SCANNER_BOOKMARKLET.code,
+        className: 'bookmarklet-link',
+        draggable: true
+      }, [STREAM_SCANNER_BOOKMARKLET.name]);
+      bookmarkletWidget.appendChild(bookmarkletLink);
+
+      const usageText = createElement('p', { className: 'bookmarklet-usage-text' }, [
+        'to automatically import a radio station from a website. Drag it to your bookmarks bar, then visit any radio station website and click it.'
+      ]);
+      helperContent.appendChild(helperText);
+      helperText.appendChild(bookmarkletWidget);
+      helperText.appendChild(usageText);
+      helperSection.appendChild(helperContent);
+      
+      container.appendChild(helperSection);
+    }
+
     const form = createElement('form', { className: 'add-station-form' });
     const inputs: { [key: string]: HTMLInputElement } = {};
     const statusElements: { [key: string]: HTMLElement } = {};
@@ -743,7 +776,8 @@ export class ModalManager {
       clearForm();
     });
 
-    return form;
+    container.appendChild(form);
+    return container;
   }
 
   /**
