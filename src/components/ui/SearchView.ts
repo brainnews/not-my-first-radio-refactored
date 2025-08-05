@@ -105,6 +105,12 @@ export class SearchView {
 
       <div class="search-filters" id="search-filters">
         <div class="filters-header">
+        <div class="radio-browser-attribution">
+        Powered by
+          <a href="https://radio-browser.info/" target="_blank" rel="noopener noreferrer">
+            RadioBrowser
+          </a>
+        </div>
           <button type="button" id="clear-filters" class="clear-filters-button" style="display: none;">
             <span class="material-symbols-rounded">close_small</span>
             Clear Filters

@@ -6214,6 +6214,12 @@ body.view-search .search-view {
   margin-bottom: 0.75rem;
   padding: 0 1rem;
 }
+.radio-browser-attribution {
+    position: absolute;
+    left: 0;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+}
 
 .search-input-container input {
   width: 100%;
@@ -6278,6 +6284,7 @@ body.view-search .search-view {
     margin-bottom: 1rem;
     width: 100%;
     gap: 1.5rem;
+    position: relative;
 }
 
 .filter-group {
