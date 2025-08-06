@@ -95,6 +95,12 @@ export class SearchView {
         <div class="search-title-section">
           <h2 class="search-title">Explore</h1>
         </div>
+        <div class="radio-browser-attribution">
+        Powered by
+          <a href="https://radio-browser.info/" target="_blank" rel="noopener noreferrer">
+            RadioBrowser
+          </a>
+        </div>
       </div>
       <div class="search-input-container">
         <input type="text" id="search-input" placeholder="" autocomplete="off">
@@ -105,12 +111,6 @@ export class SearchView {
 
       <div class="search-filters" id="search-filters">
         <div class="filters-header">
-        <div class="radio-browser-attribution">
-        Powered by
-          <a href="https://radio-browser.info/" target="_blank" rel="noopener noreferrer">
-            RadioBrowser
-          </a>
-        </div>
           <button type="button" id="clear-filters" class="clear-filters-button" style="display: none;">
             <span class="material-symbols-rounded">close_small</span>
             Clear Filters
@@ -899,28 +899,43 @@ export class SearchView {
     
     if (hasQuery || hasFilters) {
       // User searched but got no results - show Stream Scanner suggestion
-      emptyContent.innerHTML = `
-        <div class="no-results-message">
-          <span class="material-symbols-rounded no-results-icon">search_off</span>
-          <h3>No stations found</h3>
-          <p>Try different search terms or filters, or discover stations directly from radio websites.</p>
-          
-          <div class="stream-scanner-suggestion">
-            <div class="suggestion-icon">
-              <span class="material-symbols-rounded">find_in_page</span>
-            </div>
-            <div class="suggestion-content">
-              <h4>Try Stream Scanner</h4>
-              <p>Browse radio station websites and use Stream Scanner to automatically detect and add streams.</p>
-              <div class="bookmarklet-widget compact inline">
-                <p class="bookmarklet-instruction">Drag this to your bookmarks bar:</p>
-                <a href="${STREAM_SCANNER_BOOKMARKLET.code}" class="bookmarklet-link" draggable="true">${STREAM_SCANNER_BOOKMARKLET.name}</a>
-                <p class="bookmarklet-usage-text">Then visit radio station websites and click it!</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
+      // Clear existing content
+      emptyContent.innerHTML = '';
+      
+      // Create no results message container
+      const noResultsMessage = createElement('div', { className: 'no-results-message' });
+      
+      // Create and append icon
+      const iconElement = createElement('span', { 
+        className: 'material-symbols-rounded no-results-icon',
+        textContent: 'search_off'
+      });
+      noResultsMessage.appendChild(iconElement);
+      
+      // Create and append heading
+      const heading = createElement('h3', { textContent: 'No stations found' });
+      noResultsMessage.appendChild(heading);
+      
+      // Create minimal bookmarklet suggestion paragraph
+      const bookmarkletParagraph = createElement('p', { className: 'bookmarklet-suggestion' });
+      
+      // Add text before the bookmarklet
+      bookmarkletParagraph.appendChild(document.createTextNode('Use '));
+      
+      // Create bookmarklet link
+      const bookmarkletLink = createElement('a', {
+        href: STREAM_SCANNER_BOOKMARKLET.code,
+        className: 'bookmarklet-link compact',
+        draggable: true,
+        textContent: STREAM_SCANNER_BOOKMARKLET.name
+      });
+      bookmarkletParagraph.appendChild(bookmarkletLink);
+      
+      // Add text after the bookmarklet
+      bookmarkletParagraph.appendChild(document.createTextNode(' to automatically import a radio station from a website. Drag it to your bookmarks bar, then visit any radio station website and click it.'));
+      
+      noResultsMessage.appendChild(bookmarkletParagraph);
+      emptyContent.appendChild(noResultsMessage);
     } else {
       // Default empty state - show starter packs
       emptyContent.innerHTML = `
