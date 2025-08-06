@@ -282,17 +282,17 @@
             </div>
         </footer>
 
-        <!-- Settings Panel -->
-        <div id="settings-panel" class="settings-panel hidden">
-            <div class="settings-header">
-                <h2>Settings</h2>
-                <button id="close-settings" class="close-settings-btn">
+        <!-- Profile Panel -->
+        <div id="profile-panel" class="profile-panel hidden">
+            <div class="profile-header">
+                <h2>Profile</h2>
+                <button id="close-profile" class="close-profile-btn">
                     <span class="material-symbols-rounded">close</span>
                 </button>
             </div>
             
-            <div class="settings-content">
-                <div class="settings-section">
+            <div class="profile-content">
+                <div class="profile-section">
                     <h3>Username</h3>
                     <div class="username-section">
                         <p class="username-hint">This name will be used when sharing your stations with other people.</p>
@@ -304,7 +304,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="settings-section">
+                <div class="profile-section">
                     <h3>Share & Export Stations</h3>
                     <button id="share-url" class="settings-btn">
                         <span class="material-symbols-rounded">link</span>
@@ -319,7 +319,7 @@
                         Export as .json
                     </button>
                 </div>
-                <div class="settings-section">
+                <div class="profile-section">
                     <h3>Import Stations</h3>
                     <div id="upload-qr" class="file-input-wrapper settings-btn hidden">
                         <input type="file" id="qr-upload" accept="image/*" style="display: none;">
@@ -340,14 +340,14 @@
                         Add a station manually
                     </button>
                 </div>
-                <div class="settings-section">
+                <div class="profile-section">
                     <h3>Achievements</h3>
                     <button id="open-achievements" class="settings-btn">
                         <span class="material-symbols-rounded">emoji_events</span>
                         View Your Achievements
                     </button>
                 </div>
-                <div class="settings-section">
+                <div class="profile-section">
                     <h3>Data Management</h3>
                     <button id="clear-stations" class="settings-btn danger">
                         <span class="material-symbols-rounded">delete_sweep</span>
@@ -362,7 +362,7 @@
                         Reset achievements
                     </button>
                 </div>
-                <div class="settings-section">
+                <div class="profile-section">
                     <h3>About</h3>
                     <p>Not My First Radio is developed by <a href="https://www.milesgilbert.xyz" target="_blank">Miles Gilbert</a> as part of a series of non-algorithmically driven discovery apps. It is open source and available on <a href="https://github.com/brainnews/not-my-first-radio" target="_blank">GitHub</a>.</p>
                     <button id="open-terms" class="settings-btn">
@@ -436,7 +436,7 @@
             </div>
         </div>
 
-        <div id="settings-overlay" class="settings-overlay hidden"></div>
+        <div id="profile-overlay" class="profile-overlay hidden"></div>
 
         <!-- Update Notification Modal -->
         <div id="update-modal" class="modal hidden">

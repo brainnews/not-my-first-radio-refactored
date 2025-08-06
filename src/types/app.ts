@@ -9,7 +9,7 @@ export interface AppState {
   isPlaying: boolean;
   volume: number;
   username: string;
-  currentView: 'library' | 'settings' | 'search';
+  currentView: 'library' | 'profile' | 'search';
   settings: AppSettings;
 }
 
@@ -150,7 +150,7 @@ export type AppEventType =
   | 'view:changed'
   | 'view:library'
   | 'view:search'
-  | 'view:settings'
+  | 'view:profile'
   | 'library:share'
   | 'library:filter-changed'
   | 'library:render-stations'

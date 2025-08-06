@@ -1507,7 +1507,7 @@ main {
 }
 
 /* Settings Panel */
-.settings-panel {
+.profile-panel {
     position: fixed;
     top: 0;
     right: 0;
@@ -1526,11 +1526,11 @@ main {
     }
 }
 
-.settings-panel.visible {
+.profile-panel.visible {
     transform: translateX(0);
 }
 
-.settings-overlay {
+.profile-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -1544,19 +1544,19 @@ main {
     backdrop-filter: blur(10px);
 }
 
-.settings-overlay.visible {
+.profile-overlay.visible {
     opacity: 1;
     visibility: visible;
 }
 
-.settings-header {
+.profile-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 1rem;
 }
 
-.close-settings-btn {
+.close-profile-btn {
     background: transparent;
     border: none;
     display: flex;
@@ -1569,7 +1569,7 @@ main {
     cursor: pointer;
 }
 
-.close-settings-btn:hover {
+.close-profile-btn:hover {
     background: var(--border-color);
 }
 
@@ -2155,7 +2155,7 @@ main {
 
 /* Enhanced view transitions with stagger effect */
 .view-content .library-view,
-.view-content .settings-view {
+.view-content .profile-view {
     /* animation: slideInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; */
 }
 
@@ -2173,7 +2173,7 @@ main {
 /* Staggered animation for child elements */
 .view-content.active .library-quick-access,
 .view-content.active .library-all-stations,
-.view-content.active .settings-section {
+.view-content.active .profile-section {
     /* animation: fadeInStagger 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards; */
     opacity: 1;
 }
@@ -2187,27 +2187,27 @@ main {
 }
 
 
-.view-content.active .settings-section:nth-child(1) {
+.view-content.active .profile-section:nth-child(1) {
     animation-delay: 0.1s;
 }
 
-.view-content.active .settings-section:nth-child(2) {
+.view-content.active .profile-section:nth-child(2) {
     animation-delay: 0.15s;
 }
 
-.view-content.active .settings-section:nth-child(3) {
+.view-content.active .profile-section:nth-child(3) {
     animation-delay: 0.2s;
 }
 
-.view-content.active .settings-section:nth-child(4) {
+.view-content.active .profile-section:nth-child(4) {
     animation-delay: 0.25s;
 }
 
-.view-content.active .settings-section:nth-child(5) {
+.view-content.active .profile-section:nth-child(5) {
     animation-delay: 0.3s;
 }
 
-.view-content.active .settings-section:nth-child(6) {
+.view-content.active .profile-section:nth-child(6) {
     animation-delay: 0.35s;
 } */
 
@@ -2475,7 +2475,7 @@ body.view-transitioning .view-content {
     /* Better card touch interactions */
     .starter-pack-card,
     .library-quick-station-card,
-    .settings-item {
+    .profile-item {
         touch-action: manipulation;
     }
 }
@@ -2691,7 +2691,7 @@ body.view-transitioning .view-content {
 }
 
 /* Settings View Styles */
-.settings-view {
+.profile-view {
     display: none;
     flex-direction: column;
     gap: 2rem;
@@ -2701,18 +2701,18 @@ body.view-transitioning .view-content {
     padding: 1rem;
 }
 
-body.view-settings .settings-view {
+body.view-profile .profile-view {
     display: flex;
 }
 
 /* Hide settings view in library mode */
-body.view-library .settings-view {
+body.view-library .profile-view {
     display: none;
 }
 
 /* Hide search view in non-search modes */
 body.view-library .search-view,
-body.view-settings .search-view {
+body.view-profile .search-view {
     display: none;
 }
 
@@ -2722,7 +2722,7 @@ body.view-settings .search-view {
     margin: 0;
 }
 
-.settings-content {
+.profile-content {
     display: flex;
     flex-direction: column;
     gap: 2rem;
@@ -2732,7 +2732,7 @@ body.view-settings .search-view {
     padding: 1rem;
 }
 
-.settings-section-header {
+.profile-section-header {
     display: flex;
     align-items: center;
     gap: 1rem;
@@ -2740,43 +2740,46 @@ body.view-settings .search-view {
     border-bottom: 1px solid var(--border-color);
 }
 
-.settings-section-header .material-symbols-rounded {
+.profile-section-header .material-symbols-rounded {
     font-size: 1.5rem;
     color: var(--accent-color);
 }
 
-.settings-section-header-text {
+.profile-section-header-text {
     flex: 1;
 }
 
-.settings-section-title {
+.profile-section-title {
     font-size: 1.25rem;
     font-weight: 600;
 }
 
-.settings-section-description {
+.profile-section-description {
     font-size: 0.875rem;
     margin: 0;
 }
 
-.settings-section-content {
+.profile-section-content {
     padding: 0;
 }
 
-.settings-item {
+.profile-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 1rem 0;
     transition: background-color 0.2s ease;
 }
+.profile-item-bookmarklet-widget {
+    align-items: flex-start;
+}
 
-.settings-item-info {
+.profile-item-info {
     flex: 1;
     margin-right: 1rem;
 }
 
-.settings-item-label {
+.profile-item-label {
     font-size: 1rem;
     font-weight: 500;
     color: var(--text-primary);
@@ -2785,14 +2788,14 @@ body.view-settings .search-view {
     cursor: inherit;
 }
 
-.settings-item-description {
+.profile-item-description {
     font-size: 0.875rem;
     color: var(--text-secondary);
     margin: 0;
     line-height: 1.4;
 }
 
-.settings-item-control {
+.profile-item-control {
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -2920,7 +2923,7 @@ body.view-settings .search-view {
 }
 
 /* Button Control */
-.settings-button {
+.profile-button {
     background: var(--accent-color-30);
     border: none;
     border-radius: 6px;
@@ -2935,23 +2938,23 @@ body.view-settings .search-view {
     min-width: 300px;
 }
 
-.settings-button:hover {
+.profile-button:hover {
     background: var(--accent-color-70);
 }
 
 /* Special button styles for destructive actions */
-.settings-item[data-setting-id="resetAchievements"] .settings-button,
-.settings-item[data-setting-id="clearData"] .settings-button {
+.profile-item[data-setting-id="resetAchievements"] .profile-button,
+.profile-item[data-setting-id="clearData"] .profile-button {
     background: var(--error-color);
 }
 
-.settings-item[data-setting-id="resetAchievements"] .settings-button:hover,
-.settings-item[data-setting-id="clearData"] .settings-button:hover {
+.profile-item[data-setting-id="resetAchievements"] .profile-button:hover,
+.profile-item[data-setting-id="clearData"] .profile-button:hover {
     background: #e53e3e;
 }
 
 /* Info Control */
-.settings-info-value {
+.profile-info-value {
     font-size: 0.875rem;
     color: var(--text-secondary);
     font-weight: 500;
@@ -2959,12 +2962,12 @@ body.view-settings .search-view {
 
 /* Responsive Design for Settings */
 @media (max-width: 768px) {
-    .settings-view {
+    .profile-view {
         padding: 1rem 0rem;
         gap: var(--mobile-gap);
     }
     
-    .settings-title {
+    .profile-title {
         font-size: 1.75rem;
     }
     
@@ -2973,7 +2976,7 @@ body.view-settings .search-view {
         line-height: 1.4;
     }
     
-    .settings-item {
+    .profile-item {
         flex-direction: column;
         align-items: flex-start;
         gap: var(--mobile-gap);
@@ -2982,12 +2985,12 @@ body.view-settings .search-view {
         min-height: var(--touch-target);
     }
     
-    .settings-item-info {
+    .profile-item-info {
         margin-right: 0;
         width: 100%;
     }
     
-    .settings-item-control {
+    .profile-item-control {
         width: 100%;
         justify-content: flex-end;
     }
@@ -2997,17 +3000,17 @@ body.view-settings .search-view {
         width: 100%;
     }
     
-    .settings-section-header {
+    .profile-section-header {
         padding: var(--mobile-padding);
     }
     
-    .settings-section-title {
+    .profile-section-title {
         font-size: 1.125rem;
         line-height: 1.3;
     }
     
     /* Better button touch targets on mobile */
-    .settings-button {
+    .profile-button {
         min-height: var(--touch-target);
         padding: 0.75rem 1.5rem;
         font-size: 1rem;
@@ -3038,11 +3041,11 @@ body.view-settings .search-view {
         border-radius: 8px;
     }
     
-    .settings-item {
+    .profile-item {
         padding: 0.75rem;
     }
     
-    .settings-section-header {
+    .profile-section-header {
         padding: 0.75rem;
     }
 }
@@ -5309,16 +5312,16 @@ body.view-library .saved-stations {
   display: block;
 }
 
-body.view-settings .saved-stations {
+body.view-profile .saved-stations {
   display: none;
 }
 
 /* Hide main element and other library elements in settings view */
-body.view-settings main {
+body.view-profile main {
   display: none;
 }
 
-body.view-settings header {
+body.view-profile header {
   display: none;
 }
 
@@ -5426,7 +5429,7 @@ body:has(.navigation-side-nav.navigation-right) .app-container {
 /* Large screen adjustments */
 
 /* Settings panel adjustments for navigation */
-.settings-panel {
+.profile-panel {
   z-index: 1001; /* Above navigation */
 }
 
@@ -5454,7 +5457,7 @@ body:has(.navigation-tab-bar.navigation-bottom) .player-bar {
    LIBRARY VIEW STYLES
    ================================ */
 
-.library-view, .settings-view, .search-view {
+.library-view, .profile-view, .search-view {
   display: none;
   width: 100%;
   max-width: 1200px;
@@ -5462,7 +5465,7 @@ body:has(.navigation-tab-bar.navigation-bottom) .player-bar {
   padding: 1rem;
 }
 
-.settings-view {
+.profile-view {
     margin-bottom: 100px;
 }
 
@@ -5477,18 +5480,18 @@ body.view-search .search-view {
 }
 
 /* Library Header */
-.library-header, .settings-header, .search-header {
+.library-header, .profile-header, .search-header {
   padding: 1rem;
 }
 
-.library-title-section, .settings-title-section, .search-title-section {
+.library-title-section, .profile-title-section, .search-title-section {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   margin-bottom: 0.25rem;
 }
 
-.library-title, .settings-title, .search-title {
+.library-title, .profile-title, .search-title {
   font-size: 2rem;
   font-weight: 700;
   color: var(--text-primary);
@@ -6138,11 +6141,11 @@ body.view-search .search-view {
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .library-view, .settings-view, .search-view {
+  .library-view, .profile-view, .search-view {
     padding: 1rem 0rem;
   }
 
-  .library-title, .settings-title, .search-title {
+  .library-title, .profile-title, .search-title {
     font-size: 1.75rem;
   }
 
@@ -6628,12 +6631,8 @@ body.view-search .search-view {
 }
 
 /* Bookmarklet Widget Styles */
-.bookmarklet-widget {
-  margin: 1rem 0;
-}
 
 .bookmarklet-widget.compact {
-  margin: 0.75rem 0;
   display: inline;
 }
 

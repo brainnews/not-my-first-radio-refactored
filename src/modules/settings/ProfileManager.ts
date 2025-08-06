@@ -1,23 +1,23 @@
 /**
- * Settings management module for user preferences and configuration
+ * Profile management module for user preferences and configuration
  */
 
 import { AppSettings, AppEventType } from '@/types/app';
 import { eventManager } from '@/utils/events';
 import { getStorageItem, setStorageItem, StorageKeys, exportStationsData, importStationsWithMerge, clearAllStorage } from '@/utils/storage';
 
-export interface SettingsManagerConfig {
+export interface ProfileManagerConfig {
   // Configuration options can be added here as needed
 }
 
 /**
  * Manages application settings and user preferences
  */
-export class SettingsManager {
+export class ProfileManager {
   private settings!: AppSettings;
   private eventListeners: Map<AppEventType, (payload: any) => void> = new Map();
 
-  constructor(_config: SettingsManagerConfig = {}) {
+  constructor(_config: ProfileManagerConfig = {}) {
     this.loadSettings();
     this.setupEventListeners();
   }

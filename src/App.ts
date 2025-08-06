@@ -19,7 +19,7 @@ import { RadioPlayer } from '@/modules/player/RadioPlayer';
 import { StationManager } from '@/modules/stations/StationManager';
 import { NotificationManager } from '@/modules/notifications/NotificationManager';
 import { ModalManager } from '@/modules/modals/ModalManager';
-import { SettingsManager } from '@/modules/settings/SettingsManager';
+import { ProfileManager } from '@/modules/settings/ProfileManager';
 import { UserManager } from '@/modules/user/UserManager';
 import { AchievementManager } from '@/modules/achievements/AchievementManager';
 import { AchievementNotification } from '@/modules/achievements/AchievementNotification';
@@ -27,7 +27,7 @@ import { AchievementModal } from '@/modules/achievements/AchievementModal';
 import { SearchManager } from '@/modules/search/SearchManager';
 import { Navigation } from '@/components/ui/Navigation';
 import { LibraryView } from '@/components/ui/LibraryView';
-import { SettingsView } from '@/components/ui/SettingsView';
+import { ProfileView } from '@/components/ui/ProfileView';
 import { SearchView } from '@/components/ui/SearchView';
 import { initResponsiveUtils } from '@/utils/responsive';
 import { router } from '@/router/Router';
@@ -57,7 +57,7 @@ export class App {
   private stationManager!: StationManager;
   private notificationManager!: NotificationManager;
   private modalManager!: ModalManager;
-  private settingsManager!: SettingsManager;
+  private profileManager!: ProfileManager;
   private userManager!: UserManager;
   private achievementManager!: AchievementManager;
   private achievementNotification!: AchievementNotification;
@@ -65,7 +65,7 @@ export class App {
   private searchManager!: SearchManager;
   private navigation!: Navigation;
   private libraryView!: LibraryView;
-  private settingsView!: SettingsView;
+  private profileView!: ProfileView;
   private searchView!: SearchView;
 
   constructor(config: AppConfig = {}) {
@@ -157,7 +157,7 @@ export class App {
   private async initializeModules(): Promise<void> {
     // Initialize core modules first
     this.userManager = new UserManager();
-    this.settingsManager = new SettingsManager();
+    this.profileManager = new ProfileManager();
     this.notificationManager = new NotificationManager();
     this.modalManager = new ModalManager();
 
@@ -208,7 +208,7 @@ export class App {
 
 
     // Initialize settings view
-    this.settingsView = new SettingsView({
+    this.profileView = new ProfileView({
       showDataManagement: true,
       showAchievements: true
     });
@@ -726,7 +726,7 @@ export class App {
     });
 
     // View navigation integration  
-    eventManager.on('view:change', (view: 'library' | 'settings' | 'search') => {
+    eventManager.on('view:change', (view: 'library' | 'profile' | 'search') => {
       // For router-driven changes, just update state without emitting more events
       this.updateViewState(view);
     });
@@ -739,8 +739,8 @@ export class App {
       this.switchView('search');
     });
 
-    eventManager.on('view:settings', () => {
-      this.switchView('settings');
+    eventManager.on('view:profile', () => {
+      this.switchView('profile');
     });
 
     // Handle preview transfer to main player
@@ -754,7 +754,7 @@ export class App {
   /**
    * Update view state from Router (no event emissions to avoid loops)
    */
-  private updateViewState(view: 'library' | 'settings' | 'search'): void {
+  private updateViewState(view: 'library' | 'profile' | 'search'): void {
     const previousView = this.state.currentView;
     
     // Skip if switching to the same view
@@ -782,7 +782,7 @@ export class App {
   /**
    * Switch to a different view
    */
-  private switchView(view: 'library' | 'settings' | 'search'): void {
+  private switchView(view: 'library' | 'profile' | 'search'): void {
     const previousView = this.state.currentView;
     
     // Skip if switching to the same view
@@ -812,13 +812,13 @@ export class App {
   /**
    * Update UI elements for the current view
    */
-  private updateViewUI(currentView: 'library' | 'settings' | 'search'): void {
+  private updateViewUI(currentView: 'library' | 'profile' | 'search'): void {
     // Hide all sections first
     if (this.libraryView) {
       this.libraryView.hide();
     }
-    if (this.settingsView) {
-      this.settingsView.hide();
+    if (this.profileView) {
+      this.profileView.hide();
     }
     if (this.searchView) {
       this.searchView.hide();
@@ -831,7 +831,7 @@ export class App {
           this.libraryView.show();
         }
         document.body.classList.add('view-library');
-        document.body.classList.remove('view-settings', 'view-search');
+        document.body.classList.remove('view-profile', 'view-search');
         console.log('[App] Switched to library view');
         break;
         
@@ -840,17 +840,17 @@ export class App {
           this.searchView.show();
         }
         document.body.classList.add('view-search');
-        document.body.classList.remove('view-library', 'view-settings');
+        document.body.classList.remove('view-library', 'view-profile');
         console.log('[App] Switched to search view');
         break;
         
-      case 'settings':
-        if (this.settingsView) {
-          this.settingsView.show();
+      case 'profile':
+        if (this.profileView) {
+          this.profileView.show();
         }
-        document.body.classList.add('view-settings');
+        document.body.classList.add('view-profile');
         document.body.classList.remove('view-library', 'view-search');
-        console.log('[App] Switched to settings view');
+        console.log('[App] Switched to profile view');
         break;
     }
     
@@ -861,7 +861,7 @@ export class App {
   /**
    * Update navigation state to reflect current view
    */
-  private updateNavigationState(currentView: 'library' | 'settings' | 'search'): void {
+  private updateNavigationState(currentView: 'library' | 'profile' | 'search'): void {
     // This will be implemented when we create the navigation component
     // For now, just update any existing navigation indicators
     const navItems = document.querySelectorAll('[data-view]');
@@ -878,7 +878,7 @@ export class App {
   /**
    * Get current view
    */
-  getCurrentView(): 'library' | 'settings' | 'search' {
+  getCurrentView(): 'library' | 'profile' | 'search' {
     return this.state.currentView;
   }
 
@@ -1169,7 +1169,7 @@ export class App {
    */
   private exportStationsAsJSON(): void {
     try {
-      const data = this.settingsManager.exportStationData();
+      const data = this.profileManager.exportStationData();
       const blob = new Blob([data], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       
@@ -1343,7 +1343,7 @@ export class App {
    */
   private async executeImport(jsonContent: string, mergeMode: boolean): Promise<void> {
     try {
-      const success = this.settingsManager.importStationData(jsonContent, mergeMode);
+      const success = this.profileManager.importStationData(jsonContent, mergeMode);
       
       if (success) {
         // Track import achievement
@@ -1851,7 +1851,7 @@ export class App {
       stationManager: this.stationManager,
       notificationManager: this.notificationManager,
       modalManager: this.modalManager,
-      settingsManager: this.settingsManager,
+      settingsManager: this.profileManager,
       userManager: this.userManager,
       achievementManager: this.achievementManager,
       achievementNotification: this.achievementNotification,
@@ -1876,14 +1876,14 @@ export class App {
     this.stationManager?.destroy();
     this.notificationManager?.destroy();
     this.modalManager?.destroy();
-    this.settingsManager?.destroy();
+    this.profileManager?.destroy();
     this.userManager?.destroy();
     this.achievementManager?.destroy();
     this.achievementNotification?.destroy();
     this.achievementModal?.destroy();
     this.navigation?.destroy();
     this.libraryView?.destroy();
-    this.settingsView?.destroy();
+    this.profileView?.destroy();
     
     // Destroy router
     router.destroy();

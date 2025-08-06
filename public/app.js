@@ -17,11 +17,11 @@ if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
     favicon.href = './icons/favicon-light.ico';
 }
 
-// Settings panel functionality
+// Profile panel functionality
 const menuBtn = document.getElementById('menu-btn');
-const settingsPanel = document.getElementById('settings-panel');
-const settingsOverlay = document.getElementById('settings-overlay');
-const closeSettingsBtn = document.getElementById('close-settings');
+const profilePanel = document.getElementById('profile-panel');
+const profileOverlay = document.getElementById('profile-overlay');
+const closeProfileBtn = document.getElementById('close-profile');
 const exportDataBtn = document.getElementById('export-data');
 const importFileInput = document.getElementById('import-file');
 const clearStationsBtn = document.getElementById('clear-stations');
@@ -55,14 +55,14 @@ if (!localStorage.getItem('alert-banner-closed') || debug) {
 // Open settings panel
 const handleOpenSettings = (e) => {
     e.preventDefault();
-    settingsPanel.classList.remove('hidden');
-    settingsOverlay.classList.remove('hidden');
+    profilePanel.classList.remove('hidden');
+    profileOverlay.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
     document.body.style.height = '100vh';
     // Use setTimeout to ensure the transitions work properly
     setTimeout(() => {
-        settingsPanel.classList.add('visible');
-        settingsOverlay.classList.add('visible');
+        profilePanel.classList.add('visible');
+        profileOverlay.classList.add('visible');
     }, 10);
 };
 menuBtn.addEventListener('mousedown', handleOpenSettings);
@@ -75,30 +75,30 @@ menuBtn.addEventListener('keydown', (e) => {
 });
 
 // Close settings panel when clicking close button or overlay
-function closeSettingsPanel(e) {
+function closeProfilePanel(e) {
     if (e) e.preventDefault();
-    settingsPanel.classList.remove('visible');
-    settingsOverlay.classList.remove('visible');
+    profilePanel.classList.remove('visible');
+    profileOverlay.classList.remove('visible');
     document.body.style.overflow = 'auto';
     document.body.style.height = 'auto';
     // Wait for transitions to complete before hiding
     setTimeout(() => {
-        settingsPanel.classList.add('hidden');
-        settingsOverlay.classList.add('hidden');
+        profilePanel.classList.add('hidden');
+        profileOverlay.classList.add('hidden');
     }, 300);
 }
 
-closeSettingsBtn.addEventListener('mousedown', closeSettingsPanel);
-closeSettingsBtn.addEventListener('touchstart', closeSettingsPanel);
-closeSettingsBtn.addEventListener('keydown', (e) => {
+closeProfileBtn.addEventListener('mousedown', closeProfilePanel);
+closeProfileBtn.addEventListener('touchstart', closeProfilePanel);
+closeProfileBtn.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
-        closeSettingsPanel(e);
+        closeProfilePanel(e);
     }
 });
 
-settingsOverlay.addEventListener('mousedown', closeSettingsPanel);
-settingsOverlay.addEventListener('touchstart', closeSettingsPanel);
+profileOverlay.addEventListener('mousedown', closeProfilePanel);
+profileOverlay.addEventListener('touchstart', closeProfilePanel);
 
 // Handle data export
 const handleExportData = (e) => {
@@ -312,11 +312,11 @@ const emptyStateSettingsBtn = document.getElementById('empty-state-settings');
 if (emptyStateSettingsBtn) {
     const handleEmptyStateSettings = (e) => {
         e.preventDefault();
-        settingsPanel.classList.remove('hidden');
-        settingsOverlay.classList.remove('hidden');
+        profilePanel.classList.remove('hidden');
+        profileOverlay.classList.remove('hidden');
         setTimeout(() => {
-            settingsPanel.classList.add('visible');
-            settingsOverlay.classList.add('visible');
+            profilePanel.classList.add('visible');
+            profileOverlay.classList.add('visible');
         }, 10);
     };
     emptyStateSettingsBtn.addEventListener('mousedown', handleEmptyStateSettings);
@@ -552,11 +552,11 @@ class RadioPlayer {
             const emptyStateSettingsBtn = document.getElementById('empty-state-settings');
             if (emptyStateSettingsBtn) {
                 emptyStateSettingsBtn.addEventListener('click', () => {
-                    settingsPanel.classList.remove('hidden');
-                    settingsOverlay.classList.remove('hidden');
+                    profilePanel.classList.remove('hidden');
+                    profileOverlay.classList.remove('hidden');
                     setTimeout(() => {
-                        settingsPanel.classList.add('visible');
-                        settingsOverlay.classList.add('visible');
+                        profilePanel.classList.add('visible');
+                        profileOverlay.classList.add('visible');
                     }, 10);
                 });
             }
@@ -3651,7 +3651,7 @@ closeAddStationBtn.addEventListener('click', () => {
     addStationModal.classList.add('hidden');
 });
 
-settingsOverlay.addEventListener('click', () => {
+profileOverlay.addEventListener('click', () => {
     addStationModal.classList.add('hidden');
 });
 

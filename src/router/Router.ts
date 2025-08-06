@@ -6,7 +6,7 @@ import { eventManager } from '@/utils/events';
 
 export interface Route {
   path: string;
-  view: 'library' | 'settings' | 'search';
+  view: 'library' | 'profile' | 'search';
 }
 
 export interface RouterConfig {
@@ -49,8 +49,8 @@ export class Router {
         view: 'search'
       },
       {
-        path: '/settings',
-        view: 'settings'
+        path: '/profile',
+        view: 'profile'
       }
     ];
   }
@@ -129,7 +129,7 @@ export class Router {
   /**
    * Find route by view
    */
-  private findRouteByView(view: 'library' | 'settings' | 'search'): Route | null {
+  private findRouteByView(view: 'library' | 'profile' | 'search'): Route | null {
     return this.routes.find(route => route.view === view) || null;
   }
 
@@ -150,7 +150,7 @@ export class Router {
   /**
    * Navigate to a specific view
    */
-  navigateToView(view: 'library' | 'settings' | 'search', pushState: boolean = true): void {
+  navigateToView(view: 'library' | 'profile' | 'search', pushState: boolean = true): void {
     const route = this.findRouteByView(view);
     
     if (!route) {
@@ -202,7 +202,7 @@ export class Router {
   /**
    * Get current view
    */
-  getCurrentView(): 'library' | 'settings' | 'search' | null {
+  getCurrentView(): 'library' | 'profile' | 'search' | null {
     return this.currentRoute?.view || null;
   }
 

@@ -1,5 +1,5 @@
 /**
- * Settings view component for organized settings management
+ * Profile view component for user profile and tools management
  */
 
 import { createElement, querySelector } from '@/utils/dom';
@@ -7,21 +7,21 @@ import { eventManager } from '@/utils/events';
 import { clearAllStorage } from '@/utils/storage';
 import { STREAM_SCANNER_BOOKMARKLET } from '@/constants/bookmarklet';
 
-export interface SettingsViewConfig {
+export interface ProfileViewConfig {
   container?: HTMLElement;
   showDataManagement?: boolean;
   showAchievements?: boolean;
 }
 
-export interface SettingSection {
+export interface ProfileSection {
   id: string;
   title: string;
   description?: string;
   icon: string;
-  settings: SettingItem[];
+  settings: ProfileItem[];
 }
 
-export interface SettingItem {
+export interface ProfileItem {
   id: string;
   label: string;
   description?: string;
@@ -40,15 +40,15 @@ export interface SettingItem {
 }
 
 /**
- * Settings view component that organizes settings into logical sections
+ * Profile view component that organizes user profile and tools into logical sections
  */
-export class SettingsView {
+export class ProfileView {
   private container: HTMLElement;
-  private config: SettingsViewConfig;
-  private sections: SettingSection[] = [];
+  private config: ProfileViewConfig;
+  private sections: ProfileSection[] = [];
   private eventListeners: Array<{ event: string; handler: (payload: any) => void }> = [];
 
-  constructor(config: SettingsViewConfig = {}) {
+  constructor(config: ProfileViewConfig = {}) {
     this.config = {
       showDataManagement: true,
       showAchievements: true,
@@ -62,19 +62,19 @@ export class SettingsView {
   }
 
   /**
-   * Create settings view container if one isn't provided
+   * Create profile view container if one isn't provided
    */
   private createContainer(): HTMLElement {
     const container = createElement('div', {
-      className: 'settings-view',
-      id: 'settings-view'
+      className: 'profile-view',
+      id: 'profile-view'
     });
 
-    // Find the settings panel and replace it
-    const settingsPanel = querySelector('#settings-panel');
-    if (settingsPanel.parentNode) {
-      settingsPanel.parentNode.insertBefore(container, settingsPanel);
-      settingsPanel.remove();
+    // Find the profile panel and replace it
+    const profilePanel = querySelector('#profile-panel');
+    if (profilePanel.parentNode) {
+      profilePanel.parentNode.insertBefore(container, profilePanel);
+      profilePanel.remove();
     } else {
       document.body.appendChild(container);
     }
@@ -84,7 +84,7 @@ export class SettingsView {
 
 
   /**
-   * Create settings sections configuration
+   * Create profile sections configuration
    */
   private createSections(): void {
     this.sections = [];
@@ -183,35 +183,35 @@ export class SettingsView {
   }
 
   /**
-   * Render the complete settings view
+   * Render the complete profile view
    */
   private render(): void {
     this.container.innerHTML = '';
-    this.container.className = 'settings-view';
+    this.container.className = 'profile-view';
 
-    // Create settings header
+    // Create profile header
     this.renderHeader();
 
-    // Create settings content
+    // Create profile content
     this.renderContent();
   }
 
   /**
-   * Render settings header
+   * Render profile header
    */
   private renderHeader(): void {
-    const header = createElement('div', { className: 'settings-header' });
-    const title = createElement('h2', { className: 'settings-title' }, ['Settings']);
+    const header = createElement('div', { className: 'profile-header' });
+    const title = createElement('h2', { className: 'profile-title' }, ['Profile']);
     
     header.appendChild(title);
     this.container.appendChild(header);
   }
 
   /**
-   * Render settings content sections
+   * Render profile content sections
    */
   private renderContent(): void {
-    const content = createElement('div', { className: 'settings-content' });
+    const content = createElement('div', { className: 'profile-content' });
 
     this.sections.forEach(section => {
       const sectionElement = this.createSection(section);
@@ -222,23 +222,23 @@ export class SettingsView {
   }
 
   /**
-   * Create a settings section
+   * Create a profile section
    */
-  private createSection(section: SettingSection): HTMLElement {
+  private createSection(section: ProfileSection): HTMLElement {
     const sectionElement = createElement('div', { 
-      className: 'settings-section',
+      className: 'profile-section',
       dataset: { sectionId: section.id }
     });
 
     // Section header
-    const header = createElement('div', { className: 'settings-section-header' });
+    const header = createElement('div', { className: 'profile-section-header' });
     const icon = createElement('span', { className: 'material-symbols-rounded' }, [section.icon]);
-    const headerText = createElement('div', { className: 'settings-section-header-text' });
-    const title = createElement('h3', { className: 'settings-section-title' }, [section.title]);
+    const headerText = createElement('div', { className: 'profile-section-header-text' });
+    const title = createElement('h3', { className: 'profile-section-title' }, [section.title]);
     
     headerText.appendChild(title);
     if (section.description) {
-      const description = createElement('p', { className: 'settings-section-description' }, [
+      const description = createElement('p', { className: 'profile-section-description' }, [
         section.description
       ]);
       headerText.appendChild(description);
@@ -248,7 +248,7 @@ export class SettingsView {
     header.appendChild(headerText);
 
     // Section content
-    const sectionContent = createElement('div', { className: 'settings-section-content' });
+    const sectionContent = createElement('div', { className: 'profile-section-content' });
     
     section.settings.forEach(setting => {
       const settingElement = this.createSetting(setting);
@@ -262,11 +262,11 @@ export class SettingsView {
   }
 
   /**
-   * Create a setting item
+   * Create a profile item
    */
-  private createSetting(setting: SettingItem): HTMLElement {
+  private createSetting(setting: ProfileItem): HTMLElement {
     const settingElement = createElement('div', { 
-      className: `settings-item settings-item-${setting.type}`,
+      className: `profile-item profile-item-${setting.type}`,
       dataset: { settingId: setting.id as string }
     });
 
@@ -275,15 +275,15 @@ export class SettingsView {
     const hasDescription = setting.description && setting.type !== 'info-with-links';
     
     if (hasLabel || hasDescription) {
-      const settingInfo = createElement('div', { className: 'settings-item-info' });
+      const settingInfo = createElement('div', { className: 'profile-item-info' });
       
       if (hasLabel) {
-        const label = createElement('label', { className: 'settings-item-label' }, [setting.label]);
+        const label = createElement('label', { className: 'profile-item-label' }, [setting.label]);
         settingInfo.appendChild(label);
       }
       
       if (hasDescription) {
-        const description = createElement('p', { className: 'settings-item-description' }, [
+        const description = createElement('p', { className: 'profile-item-description' }, [
           setting.description!
         ]);
         settingInfo.appendChild(description);
@@ -292,7 +292,7 @@ export class SettingsView {
       settingElement.appendChild(settingInfo);
     }
 
-    const settingControl = createElement('div', { className: 'settings-item-control' });
+    const settingControl = createElement('div', { className: 'profile-item-control' });
 
     // Create appropriate control based on type
     switch (setting.type) {
@@ -319,8 +319,8 @@ export class SettingsView {
   /**
    * Create button control
    */
-  private createButtonControl(container: HTMLElement, setting: SettingItem): void {
-    const button = createElement('button', { className: 'settings-button' }, [setting.label]);
+  private createButtonControl(container: HTMLElement, setting: ProfileItem): void {
+    const button = createElement('button', { className: 'profile-button' }, [setting.label]);
     
     button.addEventListener('click', () => {
       if (setting.action) {
@@ -334,8 +334,8 @@ export class SettingsView {
   /**
    * Create info control
    */
-  private createInfoControl(container: HTMLElement, setting: SettingItem): void {
-    const info = createElement('span', { className: 'settings-info-value' }, [
+  private createInfoControl(container: HTMLElement, setting: ProfileItem): void {
+    const info = createElement('span', { className: 'profile-info-value' }, [
       setting.description || ''
     ]);
     container.appendChild(info);
@@ -344,7 +344,7 @@ export class SettingsView {
   /**
    * Create bookmarklet widget control
    */
-  private createBookmarkletWidgetControl(container: HTMLElement, setting: SettingItem): void {
+  private createBookmarkletWidgetControl(container: HTMLElement, setting: ProfileItem): void {
     if (!setting.bookmarkletData) return;
 
     const data = setting.bookmarkletData;
@@ -391,9 +391,9 @@ export class SettingsView {
   /**
    * Create info control with clickable links
    */
-  private createInfoWithLinksControl(container: HTMLElement, setting: SettingItem): void {
+  private createInfoWithLinksControl(container: HTMLElement, setting: ProfileItem): void {
     const infoText = setting.description || '';
-    const info = createElement('span', { className: 'settings-info-value settings-info-with-links' });
+    const info = createElement('span', { className: 'profile-info-value profile-info-with-links' });
     
     // Link patterns for replacement
     const linkPatterns = [
@@ -412,7 +412,7 @@ export class SettingsView {
     linkPatterns.forEach(({ text, url }) => {
       processedText = processedText.replace(
         text,
-        `<a href="#" data-link="${url}" class="settings-link">${text}</a>`
+        `<a href="#" data-link="${url}" class="profile-link">${text}</a>`
       );
     });
     
@@ -421,7 +421,7 @@ export class SettingsView {
     // Add click event listeners to the links
     info.addEventListener('click', (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (target.classList.contains('settings-link')) {
+      if (target.classList.contains('profile-link')) {
         e.preventDefault();
         const link = target.getAttribute('data-link');
         if (link) {
@@ -545,7 +545,7 @@ export class SettingsView {
    */
   private setupEventListeners(): void {
     const viewChangeHandler = (data: { currentView: string }): void => {
-      if (data.currentView === 'settings') {
+      if (data.currentView === 'profile') {
         this.show();
       } else {
         this.hide();
@@ -558,14 +558,14 @@ export class SettingsView {
 
 
   /**
-   * Show the settings view
+   * Show the profile view
    */
   show(): void {
     this.container.style.display = 'block';
   }
 
   /**
-   * Hide the settings view
+   * Hide the profile view
    */
   hide(): void {
     this.container.style.display = 'none';

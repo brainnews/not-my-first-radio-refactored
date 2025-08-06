@@ -17,7 +17,7 @@ interface NavigationItem {
   id: string;
   label: string;
   icon: string;
-  view: 'library' | 'settings' | 'search';
+  view: 'library' | 'profile' | 'search';
   active?: boolean;
 }
 
@@ -27,7 +27,7 @@ interface NavigationItem {
 export class Navigation {
   private container: HTMLElement;
   private config: NavigationConfig;
-  private currentView: 'library' | 'settings' | 'search';
+  private currentView: 'library' | 'profile' | 'search';
   private navigationItems: NavigationItem[] = [
     {
       id: 'nav-library',
@@ -43,10 +43,10 @@ export class Navigation {
       view: 'search'
     },
     {
-      id: 'nav-settings',
-      label: 'Settings',
-      icon: 'settings',
-      view: 'settings'
+      id: 'nav-profile',
+      label: 'Profile',
+      icon: 'account_circle',
+      view: 'profile'
     }
   ];
 
@@ -179,7 +179,7 @@ export class Navigation {
   /**
    * Switch to a specific view
    */
-  private switchToView(view: 'library' | 'settings' | 'search'): void {
+  private switchToView(view: 'library' | 'profile' | 'search'): void {
     // Always allow navigation to ensure proper view activation
     // Use router to navigate, which will handle URL updates and emit events
     router.navigateToView(view);
@@ -188,7 +188,7 @@ export class Navigation {
   /**
    * Update active state for navigation items
    */
-  private updateActiveState(activeView: 'library' | 'settings' | 'search'): void {
+  private updateActiveState(activeView: 'library' | 'profile' | 'search'): void {
     // Update internal navigation items
     this.navigationItems.forEach(item => {
       item.active = item.view === activeView;
@@ -212,12 +212,12 @@ export class Navigation {
   private setupEventListeners(): void {
     // Listen for view changes from router
     eventManager.on('view:changed', (data: { currentView: string }) => {
-      this.currentView = data.currentView as 'library' | 'settings' | 'search';
+      this.currentView = data.currentView as 'library' | 'profile' | 'search';
       this.updateActiveState(this.currentView);
     });
 
     // Also listen for direct view:change events to keep UI in sync
-    eventManager.on('view:change', (view: 'library' | 'settings' | 'search') => {
+    eventManager.on('view:change', (view: 'library' | 'profile' | 'search') => {
       this.currentView = view;
       this.updateActiveState(view);
     });
@@ -260,7 +260,7 @@ export class Navigation {
   /**
    * Get current view
    */
-  getCurrentView(): 'library' | 'settings' | 'search' {
+  getCurrentView(): 'library' | 'profile' | 'search' {
     return this.currentView;
   }
 
