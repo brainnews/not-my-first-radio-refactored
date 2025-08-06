@@ -177,6 +177,12 @@ export class ProfileView {
           label: '',
           description: 'Not My First Radio is developed by Miles Gilbert as part of a series of non-algorithmically driven discovery apps. Read more here.',
           type: 'info-with-links'
+        },
+        {
+          id: 'privacy-info',
+          label: '',
+          description: 'Privacy: All your data stays on your device. The app connects to the Radio Browser API for station discovery and an optional sharing service when you choose to share stations. No tracking or personal data collection.',
+          type: 'info-with-links'
         }
       ]
     });
