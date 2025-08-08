@@ -2,7 +2,7 @@
  * Station management module for CRUD operations and display logic
  */
 
-import { LocalStation, RadioStation, StationListeningTimes } from '@/types/station';
+import { LocalStation, RadioStation, StationListeningTimes, ListeningSession } from '@/types/station';
 import { eventManager } from '@/utils/events';
 import { getStorageItem, setStorageItem, StorageKeys } from '@/utils/storage';
 import { querySelector, createElement, debounce } from '@/utils/dom';
@@ -103,6 +103,8 @@ export class StationManager {
   private debouncedFilter: (query: string) => void;
   private debouncedFilterInContainer: (container: HTMLElement) => void;
   private shuffleHistory: string[] = []; // Track last 5 shuffled station UUIDs
+  private currentSessionStart: number | null = null; // Track current listening session
+  private currentSessionStation: LocalStation | null = null;
 
   constructor(config: StationManagerConfig = {}) {
     this.container = config.container || querySelector('#stations');
@@ -307,6 +309,9 @@ export class StationManager {
       this.currentPlayingStation = station;
       this.isCurrentlyPlaying = true;
       
+      // Start listening session tracking
+      this.startListeningSession(station);
+      
       // Update station metadata for play tracking
       const localStation = this.stations.find(s => s.stationuuid === station.stationuuid);
       if (localStation) {
@@ -322,11 +327,13 @@ export class StationManager {
     });
 
     eventManager.on('station:pause', () => {
+      this.endListeningSession();
       this.isCurrentlyPlaying = false;
       this.updatePlayingStationUI();
     });
 
     eventManager.on('station:stop', () => {
+      this.endListeningSession();
       this.currentPlayingStation = null;
       this.isCurrentlyPlaying = false;
       this.updatePlayingStationUI();
@@ -391,7 +398,71 @@ export class StationManager {
   }
 
   /**
-   * Update station listening time
+   * Start a new listening session
+   */
+  private startListeningSession(station: LocalStation): void {
+    this.endListeningSession(); // End any previous session
+    this.currentSessionStart = Date.now();
+    this.currentSessionStation = station;
+  }
+
+  /**
+   * End the current listening session and record data
+   */
+  private endListeningSession(): void {
+    if (this.currentSessionStart && this.currentSessionStation) {
+      const sessionEnd = Date.now();
+      const duration = sessionEnd - this.currentSessionStart;
+      
+      // Only record sessions longer than 5 seconds
+      if (duration > 5000) {
+        this.recordListeningSession(this.currentSessionStation, {
+          startTime: this.currentSessionStart,
+          duration,
+          dayOfWeek: new Date(this.currentSessionStart).getDay(),
+          hourOfDay: new Date(this.currentSessionStart).getHours()
+        });
+      }
+    }
+    
+    this.currentSessionStart = null;
+    this.currentSessionStation = null;
+  }
+
+  /**
+   * Record a listening session with behavioral data
+   */
+  private recordListeningSession(station: LocalStation, session: ListeningSession): void {
+    const listeningTimes = getStorageItem<StationListeningTimes>(StorageKeys.STATION_LISTENING_TIMES, {});
+    
+    if (!listeningTimes[station.stationuuid]) {
+      listeningTimes[station.stationuuid] = {
+        totalTime: 0,
+        sessionCount: 0,
+        sessions: [],
+        lastPlayedAt: 0
+      };
+    }
+    
+    const stationData = listeningTimes[station.stationuuid];
+    stationData.totalTime += session.duration;
+    stationData.sessionCount += 1;
+    stationData.lastPlayedAt = session.startTime;
+    stationData.sessions.push(session);
+    
+    // Keep only the last 100 sessions to prevent storage bloat
+    if (stationData.sessions.length > 100) {
+      stationData.sessions = stationData.sessions.slice(-100);
+    }
+    
+    setStorageItem(StorageKeys.STATION_LISTENING_TIMES, listeningTimes);
+    
+    // Update totalListeningTime on all stations for sorting
+    this.updateStationsWithListeningTimes();
+  }
+
+  /**
+   * Update station listening time (legacy method for compatibility)
    */
   private updateStationListeningTime(station: LocalStation, timeMs: number): void {
     const listeningTimes = getStorageItem<StationListeningTimes>(StorageKeys.STATION_LISTENING_TIMES, {});
@@ -399,7 +470,9 @@ export class StationManager {
     if (!listeningTimes[station.stationuuid]) {
       listeningTimes[station.stationuuid] = {
         totalTime: 0,
-        sessionCount: 0
+        sessionCount: 0,
+        sessions: [],
+        lastPlayedAt: 0
       };
     }
     

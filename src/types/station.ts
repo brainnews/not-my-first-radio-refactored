@@ -101,11 +101,23 @@ export interface StationDisplayOptions {
 }
 
 /**
- * Per-station listening time data
+ * Individual listening session data for behavioral analysis
+ */
+export interface ListeningSession {
+  startTime: number;        // timestamp when session started
+  duration: number;         // session duration in milliseconds
+  dayOfWeek: number;        // 0-6 (Sunday-Saturday)
+  hourOfDay: number;        // 0-23
+}
+
+/**
+ * Per-station listening time data with behavioral tracking
  */
 export interface StationListeningTime {
   totalTime: number;        // milliseconds
   sessionCount: number;     // number of times played
+  sessions: ListeningSession[];  // individual session data for analysis
+  lastPlayedAt: number;     // timestamp of last play
 }
 
 /**
@@ -113,4 +125,14 @@ export interface StationListeningTime {
  */
 export interface StationListeningTimes {
   [stationUuid: string]: StationListeningTime;
+}
+
+/**
+ * Rotation state for auto-generated lists
+ */
+export interface ListRotationState {
+  lastRotation: number;     // timestamp of last rotation
+  currentCycle: number;     // current rotation cycle number
+  rotationSeed: string;     // random seed for consistent rotation
+  excludedCategories: string[];  // categories rotated out this cycle
 }
