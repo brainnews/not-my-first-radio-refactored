@@ -5849,12 +5849,44 @@ body.view-search .search-view {
 
 /* Auto-Generated Lists Section */
 
+.library-auto-list-section {
+  margin-bottom: 2rem;
+}
+
+.library-auto-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding: 0 1rem;
+}
+
 .library-auto-list-title {
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--text-primary);
-  margin: 0 0 1rem 0;
-  padding: 0 1rem;
+  margin: 0;
+}
+
+.library-auto-list-dismiss {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+}
+
+.library-auto-list-dismiss:hover {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  opacity: 1;
+}
+
+.library-auto-list-dismiss .material-symbols-rounded {
+  font-size: 18px;
 }
 
 .library-auto-list-scroll {
@@ -5932,20 +5964,22 @@ body.view-search .search-view {
 .library-auto-station-name {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
 }
 
+
 /* Mobile responsiveness */
 @media (max-width: 768px) {
   .library-auto-station-card {
-    flex: 0 0 100px;
+    flex: 0 0 120px;
   }
   
   .library-auto-station-card .library-station-avatar {
-    width: 100px;
-    height: 100px;
+    width: 120px;
+    height: 120px;
     font-size: 1.5rem;
   }
   
@@ -5954,10 +5988,19 @@ body.view-search .search-view {
   }
 }
 
+@media (max-width: 768px) {
+  .library-auto-list-header {
+    padding: 0 0.875rem;
+  }
+}
+
 @media (max-width: 480px) {
+  .library-auto-list-header {
+    padding: 0 0.875rem;
+  }
+  
   .library-auto-list-title {
     font-size: 1.25rem;
-    padding: 0 0.875rem;
   }
   
   .library-auto-list-scroll {
@@ -5969,12 +6012,12 @@ body.view-search .search-view {
   }
   
   .library-auto-station-card {
-    flex: 0 0 80px;
+    flex: 0 0 140px;
   }
   
   .library-auto-station-card .library-station-avatar {
-    width: 80px;
-    height: 80px;
+    width: 140px;
+    height: 140px;
     font-size: 1.25rem;
   }
   

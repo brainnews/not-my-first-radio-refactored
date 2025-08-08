@@ -33,12 +33,14 @@ This is a **modern TypeScript refactor** of a monolithic radio streaming applica
 
 ```typescript
 // ✅ Correct: Event-driven communication
-eventManager.emit('station:play', station);
+eventManager.emit('station:play-request', station);
 eventManager.emit('notification:show', { type: 'success', message: 'Station added' });
 
 // ❌ Avoid: Direct module calls
 stationManager.addStation(station); // Creates tight coupling
 ```
+
+**CRITICAL EVENT NAMING**: Use `station:play-request` for triggering playback, NOT `station:play`. The App.ts listens for `station:play-request` to actually start playback, while `station:play` is emitted BY the player when playback begins.
 
 **Module Structure**: Each module follows consistent patterns:
 - Constructor dependency injection via config objects
@@ -65,7 +67,7 @@ stationManager.addStation(station); // Creates tight coupling
 - Preset system (6 slots with keyboard shortcuts 1-6)
 - Data migration for legacy formats
 - Import/export functionality (JSON, sharing URLs, QR codes)
-- Rendering with sections (favorites, recent, all stations)
+- Rendering with sections (presets section has NO header/collapse functionality)
 
 **SearchManager** (`src/modules/search/SearchManager.ts`):
 - Debounced search (500ms) with Radio Browser API integration
@@ -101,6 +103,18 @@ stationManager.addStation(station); // Creates tight coupling
 - Browser back/forward button support
 - URL state management for bookmarking and sharing
 - Event-driven view coordination with existing UI system
+
+### Auto-Generated Lists System
+
+**Service**: `src/services/lists/AutoListGenerator.ts`
+- **Smart Station Grouping**: Automatically creates curated collections from user's library
+- **Genre Detection**: Groups stations by music genre using tag analysis
+- **Station Name Cleaning**: Removes metadata patterns (bitrate, "Radio" suffix) and extracts call signs
+- **Dynamic List Generation**: Creates 2-4 lists based on library size and station diversity
+- **Quality-Based Curation**: Prioritizes higher-quality stations and removes duplicates
+- **Configurable Thresholds**: Minimum stations per genre (3), library size thresholds (15)
+
+**Integration**: Auto-generated lists appear in LibraryView as horizontal scrolling sections with simplified station cards that emit `station:play-request` events.
 
 ### Radio Browser API Integration
 
@@ -182,7 +196,7 @@ radioBrowserApi.getStationsByCountry(code)     // Country-specific stations
 **Central Events** (`src/utils/events.ts`):
 ```typescript
 // Station events
-'station:play' | 'station:pause' | 'station:add' | 'station:remove' | 'station:added'
+'station:play-request' | 'station:pause' | 'station:add' | 'station:remove' | 'station:added'
 
 // Player events
 'player:state-changed' | 'player:volume-changed' | 'player:error' | 'player:listening-time'
@@ -235,6 +249,8 @@ try {
 **Modal System**: All dialogs go through ModalManager with consistent styling, keyboard accessibility (ESC, Tab trapping), and focus management.
 
 **Responsive Design**: Mobile-first approach with breakpoints defined in CSS custom properties.
+
+**LibraryView Architecture**: The LibraryView delegates actual station rendering to StationManager while handling auto-generated lists directly. This hybrid approach allows the LibraryView to own the layout while preserving StationManager's functionality.
 
 ### Testing Approach
 

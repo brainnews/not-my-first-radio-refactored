@@ -6,6 +6,7 @@ import { createElement, querySelector } from '@/utils/dom';
 import { eventManager } from '@/utils/events';
 import { clearAllStorage } from '@/utils/storage';
 import { STREAM_SCANNER_BOOKMARKLET } from '@/constants/bookmarklet';
+import { autoListGenerator } from '@/services/lists/AutoListGenerator';
 
 export interface ProfileViewConfig {
   container?: HTMLElement;
@@ -114,6 +115,23 @@ export class ProfileView {
         ]
       });
     }
+
+    // Add suggested lists section  
+    this.sections.push({
+      id: 'suggested-lists',
+      title: 'Suggested Lists',
+      description: 'Manage your auto-generated station collections',
+      icon: 'auto_awesome',
+      settings: [
+        {
+          id: 'resetSuggestedLists',
+          label: 'Reset suggested lists',
+          description: 'Restore all dismissed suggested lists',
+          type: 'button',
+          action: () => this.resetSuggestedLists()
+        }
+      ]
+    });
 
     // Add browser tools section
     this.sections.push({
@@ -538,6 +556,37 @@ export class ProfileView {
             eventManager.emit('notification:show', {
               type: 'success',
               message: 'Achievements reset successfully'
+            });
+            eventManager.emit('modal:close');
+          }
+        }
+      ]
+    });
+  }
+
+  /**
+   * Reset suggested lists
+   */
+  private resetSuggestedLists(): void {
+    eventManager.emit('modal:open', {
+      type: 'confirmation',
+      title: 'Reset Suggested Lists',
+      content: 'This will restore all dismissed suggested lists. You can dismiss them again if needed.',
+      actions: [
+        {
+          label: 'Cancel',
+          style: 'secondary',
+          action: () => eventManager.emit('modal:close')
+        },
+        {
+          label: 'Reset Lists',
+          style: 'primary',
+          action: () => {
+            autoListGenerator.resetDismissedLists();
+            eventManager.emit('auto-lists:generate');
+            eventManager.emit('notification:show', {
+              type: 'success',
+              message: 'Suggested lists reset successfully'
             });
             eventManager.emit('modal:close');
           }
