@@ -1412,29 +1412,6 @@ export class StationManager {
     const section = createElement('div', { className: 'station-section' });
     section.setAttribute('data-section-id', 'presets');
     
-    // Create header with minimize button
-    const headerContainer = createElement('div', { className: 'station-section-header' });
-    const header = createElement('h3', { className: 'section-title' }, ['Presets']);
-    
-    const minimizeBtn = createElement('button', { 
-      className: 'minimize-btn'
-    }) as HTMLButtonElement;
-    
-    const icon = createElement('span', { className: 'material-symbols-rounded' }, ['expand_less']);
-    minimizeBtn.appendChild(icon);
-    
-    headerContainer.appendChild(header);
-    headerContainer.appendChild(minimizeBtn);
-    section.appendChild(headerContainer);
-    
-    // Add click handler for entire header container
-    headerContainer.addEventListener('click', () => {
-      this.toggleSectionCollapse('presets', section, minimizeBtn);
-    });
-    
-    // Make header container clickable
-    headerContainer.style.cursor = 'pointer';
-    
     // Create preset tiles grid
     const presetsGrid = createElement('div', { className: 'presets-grid' });
     
@@ -1446,13 +1423,6 @@ export class StationManager {
     });
     
     section.appendChild(presetsGrid);
-    
-    // Check if section should be collapsed
-    const sectionStates = getStorageItem(StorageKeys.SECTION_STATES, {} as Record<string, boolean>);
-    if (sectionStates['presets']) {
-      section.classList.add('collapsed');
-      icon.textContent = 'expand_more';
-    }
     
     this.container?.appendChild(section);
   }
