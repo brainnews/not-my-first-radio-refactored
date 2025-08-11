@@ -5892,7 +5892,7 @@ body.view-search .search-view {
 .library-auto-list-scroll {
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 0 1rem 0.5rem 1rem;
+  padding: 0 1rem 0.5rem 0.5rem;
   /* Hide scrollbar */
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -5904,7 +5904,7 @@ body.view-search .search-view {
 
 .library-auto-list-stations {
   display: flex;
-  gap: 1rem;
+  gap: 0.25rem;
   padding-bottom: 0.25rem;
 }
 
@@ -5914,13 +5914,16 @@ body.view-search .search-view {
   transition: all 0.2s ease;
   position: relative;
   border-radius: 12px;
-  overflow: hidden;
   background: var(--bg-primary);
   border: 1px solid transparent;
   transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  padding: 0.5rem;
 }
 .library-auto-station-card:hover {
-  border-color: var(--accent-color);
+  /* border-color: var(--accent-color); */
+  background: var(--bg-secondary);
 }
 
 .library-auto-station-card .library-station-avatar {
@@ -5935,6 +5938,7 @@ body.view-search .search-view {
   font-weight: 600;
   color: var(--text-primary);
   position: relative;
+  border-radius: 8px;
 }
 
 .library-auto-station-card .library-station-avatar img {
@@ -5947,17 +5951,9 @@ body.view-search .search-view {
   color: var(--accent-color);
 }
 .library-auto-station-name-container {
-  position: relative;
-  padding: 0.5rem;
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: var(--bg-secondary);
-  color: white;
+  padding: 0.5rem 0rem 0rem 0rem;
   font-size: 0.75rem;
   font-weight: 500;
-  text-align: left;
   line-height: 1.2;
 }
 
@@ -5968,6 +5964,7 @@ body.view-search .search-view {
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
+  color: var(--text-secondary);
 }
 
 
