@@ -104,17 +104,6 @@ stationManager.addStation(station); // Creates tight coupling
 - URL state management for bookmarking and sharing
 - Event-driven view coordination with existing UI system
 
-### Auto-Generated Lists System
-
-**Service**: `src/services/lists/AutoListGenerator.ts`
-- **Smart Station Grouping**: Automatically creates curated collections from user's library
-- **Genre Detection**: Groups stations by music genre using tag analysis
-- **Station Name Cleaning**: Removes metadata patterns (bitrate, "Radio" suffix) and extracts call signs
-- **Dynamic List Generation**: Creates 2-4 lists based on library size and station diversity
-- **Quality-Based Curation**: Prioritizes higher-quality stations and removes duplicates
-- **Configurable Thresholds**: Minimum stations per genre (3), library size thresholds (15)
-
-**Integration**: Auto-generated lists appear in LibraryView as horizontal scrolling sections with simplified station cards that emit `station:play-request` events.
 
 ### Radio Browser API Integration
 
@@ -250,7 +239,7 @@ try {
 
 **Responsive Design**: Mobile-first approach with breakpoints defined in CSS custom properties.
 
-**LibraryView Architecture**: The LibraryView delegates actual station rendering to StationManager while handling auto-generated lists directly. This hybrid approach allows the LibraryView to own the layout while preserving StationManager's functionality.
+**LibraryView Architecture**: The LibraryView delegates actual station rendering to StationManager. This hybrid approach allows the LibraryView to own the layout while preserving StationManager's functionality.
 
 ### Testing Approach
 

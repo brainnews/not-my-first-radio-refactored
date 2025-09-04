@@ -208,12 +208,7 @@ export type AppEventType =
   | 'modal:closed'
   | 'settings:loaded'
   | 'settings:saved'
-  | 'settings:applied'
-  | 'auto-list:expand'
-  | 'auto-list:dismiss'
-  | 'auto-list:restore'
-  | 'auto-lists:generate'
-  | 'auto-lists:generated';
+  | 'settings:applied';
 
 /**
  * Event interface

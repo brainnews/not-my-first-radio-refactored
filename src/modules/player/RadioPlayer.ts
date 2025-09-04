@@ -2,7 +2,7 @@
  * Core radio player module with audio management and state control
  */
 
-import { LocalStation, StationListeningTimes } from '@/types/station';
+import { LocalStation } from '@/types/station';
 import { PlayerState, AppSettings } from '@/types/app';
 import { eventManager } from '@/utils/events';
 import { getStorageItem, setStorageItem, StorageKeys } from '@/utils/storage';

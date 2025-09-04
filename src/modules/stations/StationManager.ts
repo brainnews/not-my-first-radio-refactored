@@ -2,7 +2,7 @@
  * Station management module for CRUD operations and display logic
  */
 
-import { LocalStation, RadioStation, StationListeningTimes, ListeningSession } from '@/types/station';
+import { LocalStation, RadioStation, StationListeningTimes } from '@/types/station';
 import { eventManager } from '@/utils/events';
 import { getStorageItem, setStorageItem, StorageKeys } from '@/utils/storage';
 import { querySelector, createElement, debounce } from '@/utils/dom';
@@ -416,12 +416,7 @@ export class StationManager {
       
       // Only record sessions longer than 5 seconds
       if (duration > 5000) {
-        this.recordListeningSession(this.currentSessionStation, {
-          startTime: this.currentSessionStart,
-          duration,
-          dayOfWeek: new Date(this.currentSessionStart).getDay(),
-          hourOfDay: new Date(this.currentSessionStart).getHours()
-        });
+        this.updateStationListeningTime(this.currentSessionStation, duration);
       }
     }
     
@@ -429,40 +424,9 @@ export class StationManager {
     this.currentSessionStation = null;
   }
 
-  /**
-   * Record a listening session with behavioral data
-   */
-  private recordListeningSession(station: LocalStation, session: ListeningSession): void {
-    const listeningTimes = getStorageItem<StationListeningTimes>(StorageKeys.STATION_LISTENING_TIMES, {});
-    
-    if (!listeningTimes[station.stationuuid]) {
-      listeningTimes[station.stationuuid] = {
-        totalTime: 0,
-        sessionCount: 0,
-        sessions: [],
-        lastPlayedAt: 0
-      };
-    }
-    
-    const stationData = listeningTimes[station.stationuuid];
-    stationData.totalTime += session.duration;
-    stationData.sessionCount += 1;
-    stationData.lastPlayedAt = session.startTime;
-    stationData.sessions.push(session);
-    
-    // Keep only the last 100 sessions to prevent storage bloat
-    if (stationData.sessions.length > 100) {
-      stationData.sessions = stationData.sessions.slice(-100);
-    }
-    
-    setStorageItem(StorageKeys.STATION_LISTENING_TIMES, listeningTimes);
-    
-    // Update totalListeningTime on all stations for sorting
-    this.updateStationsWithListeningTimes();
-  }
 
   /**
-   * Update station listening time (legacy method for compatibility)
+   * Update station listening time
    */
   private updateStationListeningTime(station: LocalStation, timeMs: number): void {
     const listeningTimes = getStorageItem<StationListeningTimes>(StorageKeys.STATION_LISTENING_TIMES, {});
@@ -471,12 +435,14 @@ export class StationManager {
       listeningTimes[station.stationuuid] = {
         totalTime: 0,
         sessionCount: 0,
-        sessions: [],
         lastPlayedAt: 0
       };
     }
     
-    listeningTimes[station.stationuuid].totalTime += timeMs;
+    const stationData = listeningTimes[station.stationuuid];
+    stationData.totalTime += timeMs;
+    stationData.sessionCount += 1;
+    stationData.lastPlayedAt = Date.now();
     
     setStorageItem(StorageKeys.STATION_LISTENING_TIMES, listeningTimes);
     
