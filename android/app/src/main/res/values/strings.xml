@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Not My First Radio</string>
+    <string name="title_activity_main">Not My First Radio</string>
+    <string name="package_name">com.notmyfirstradio.app</string>
+    <string name="custom_url_scheme">com.notmyfirstradio.app</string>
+</resources>

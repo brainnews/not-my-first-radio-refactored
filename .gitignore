@@ -72,6 +72,12 @@ sw.js.map
 # Documentation builds
 docs/dist/
 
-# Capacitor
-android/
-ios/
+# Capacitor - ignore build artifacts but track configuration
+android/.gradle/
+android/app/build/
+android/build/
+android/app/src/main/assets/public/
+android/capacitor-cordova-android-plugins/
+ios/App/build/
+ios/App/App/public/
+ios/capacitor-cordova-ios-plugins/
