@@ -14,9 +14,20 @@
     "test:coverage": "vitest --coverage",
     "pages:build": "npm run type-check && npm run lint && npm run build",
     "pages:deploy": "wrangler pages deploy dist --project-name not-my-first-radio",
-    "pages:deploy:preview": "wrangler pages deploy dist --project-name not-my-first-radio --env preview"
+    "pages:deploy:preview": "wrangler pages deploy dist --project-name not-my-first-radio --env preview",
+    "cap:build": "npm run build && npx cap sync",
+    "cap:android": "npm run cap:build && npx cap run android",
+    "cap:ios": "npm run cap:build && npx cap run ios"
   },
   "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/app": "^7.1.0",
+    "@capacitor/cli": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/haptics": "^7.0.2",
+    "@capacitor/ios": "^7.4.3",
+    "@capacitor/keyboard": "^7.0.3",
+    "@capacitor/status-bar": "^7.0.3",
     "jsqr": "^1.4.0",
     "qrcode": "^1.5.4"
   },

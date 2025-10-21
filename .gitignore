@@ -71,3 +71,7 @@ sw.js.map
 
 # Documentation builds
 docs/dist/
+
+# Capacitor
+android/
+ios/
