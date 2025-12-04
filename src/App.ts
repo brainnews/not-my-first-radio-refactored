@@ -155,6 +155,17 @@ export class App {
    * Initialize all modules
    */
   private async initializeModules(): Promise<void> {
+    // Configure StatusBar for native apps
+    if (typeof window.Capacitor !== 'undefined') {
+      try {
+        const { StatusBar } = await import('@capacitor/status-bar');
+        await StatusBar.setOverlaysWebView({ overlay: true });
+        console.log('[App] StatusBar overlay enabled');
+      } catch (error) {
+        console.log('[App] StatusBar not available:', error);
+      }
+    }
+
     // Initialize core modules first
     this.userManager = new UserManager();
     this.profileManager = new ProfileManager();
@@ -888,14 +899,60 @@ export class App {
   private setupGlobalEventHandlers(): void {
     // Handle uncaught errors
     window.addEventListener('error', (event) => {
-      console.error('[App] Uncaught error:', event.error);
-      this.notificationManager.error('An unexpected error occurred');
+      const errorMessage = event.error?.message || event.message || '';
+      const errorStack = event.error?.stack || '';
+
+      console.error('[App] Uncaught error:', {
+        message: errorMessage,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+        error: event.error,
+        stack: errorStack
+      });
+
+      // Filter out errors we don't want to show to users
+      const shouldIgnore =
+        errorMessage.includes('Service Worker') ||
+        errorMessage.includes('serviceWorker') ||
+        errorMessage.includes('Failed to register') ||
+        errorMessage.includes('SecurityError') ||
+        errorMessage.includes('ResizeObserver') ||
+        event.filename?.includes('sw.js') ||
+        event.filename?.includes('workbox');
+
+      if (!shouldIgnore) {
+        console.error('[App] Showing error to user:', errorMessage);
+        this.notificationManager.error('An unexpected error occurred');
+      } else {
+        console.log('[App] Ignoring error:', errorMessage);
+      }
     });
 
     // Handle unhandled promise rejections
     window.addEventListener('unhandledrejection', (event) => {
-      console.error('[App] Unhandled promise rejection:', event.reason);
-      this.notificationManager.error('An unexpected error occurred');
+      const errorMessage = String(event.reason?.message || event.reason || '');
+
+      console.error('[App] Unhandled promise rejection:', {
+        message: errorMessage,
+        reason: event.reason
+      });
+
+      // Filter out errors we don't want to show to users
+      const shouldIgnore =
+        errorMessage.includes('Service Worker') ||
+        errorMessage.includes('serviceWorker') ||
+        errorMessage.includes('Failed to register') ||
+        errorMessage.includes('SecurityError') ||
+        errorMessage.includes('AudioService') ||
+        errorMessage.includes('not implemented on android');
+
+      if (!shouldIgnore) {
+        console.error('[App] Showing error to user:', errorMessage);
+        this.notificationManager.error('An unexpected error occurred');
+      } else {
+        console.log('[App] Ignoring error:', errorMessage);
+      }
     });
 
     // Handle online/offline status

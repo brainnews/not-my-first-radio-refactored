@@ -89,9 +89,9 @@ export function validateTouchTargets(): void {
           size: `${rect.width}×${rect.height}`,
           minimum: `${minTouchSize}×${minTouchSize}`
         });
-        
-        // Visual indicator in development
-        (element as HTMLElement).style.outline = '2px solid red';
+
+        // Visual indicator removed - was showing in native apps
+        // (element as HTMLElement).style.outline = '2px solid red';
       }
     });
   }

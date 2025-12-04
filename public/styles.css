@@ -147,7 +147,8 @@ p.tip {
     padding: var(--mobile-padding);
     max-width: 1200px;
     margin: 0 auto;
-    /* Account for mobile navigation */
+    /* Account for device safe areas - extra padding for mobile status bar */
+    padding-top: calc(1.5rem + env(safe-area-inset-top, 0px));
     padding-bottom: calc(80px + env(safe-area-inset-bottom));
 }
 
@@ -3053,7 +3054,7 @@ body.view-profile .search-view {
 /* Notification system */
 .notification-container {
     position: fixed;
-    top: 1rem;
+    top: calc(env(safe-area-inset-top, 0px) + 1rem);
     right: 1rem;
     z-index: 1100;
     display: flex;
@@ -5389,8 +5390,8 @@ body:has(.navigation-side-nav.navigation-right) .app-container {
   }
   
   body:has(.navigation-tab-bar.navigation-top) .app-container {
-    padding-top: 0;
-    padding-bottom: 70px;
+    padding-top: calc(1rem + env(safe-area-inset-top, 0px));
+    padding-bottom: 10px;
   }
   .tab-label {
     display: none; /* Hide labels on very small screens */

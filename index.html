@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Not My First Radio - Algorithm-Free Internet Radio Player | Online Radio Streaming</title>
     
     <!-- SEO Meta Tags -->
@@ -181,10 +181,24 @@
     
     <!-- Service Worker Registration -->
     <script>
-        if ('serviceWorker' in navigator) {
-            // Register service worker for PWA functionality
+        // Check if running in Capacitor (native app)
+        function isNativeApp() {
+            return window.location.protocol === 'capacitor:' ||
+                   window.location.protocol === 'ionic:' ||
+                   window.location.protocol === 'file:' ||
+                   (typeof window.Capacitor !== 'undefined');
+        }
+
+        if ('serviceWorker' in navigator && !isNativeApp()) {
+            // Register service worker for PWA functionality (web only)
             navigator.serviceWorker.register('/sw.js')
+                .catch(err => {
+                    // Silently fail in native environment
+                    console.log('Service Worker not available in this environment');
+                    return null;
+                })
                 .then(registration => {
+                    if (!registration) return;
                     console.log('Service Worker registered successfully:', registration);
                     
                     // Check for updates every hour

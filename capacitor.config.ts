@@ -13,8 +13,29 @@ const config: CapacitorConfig = {
     },
     StatusBar: {
       style: 'dark',
-      backgroundColor: '#2c2c2c'
+      backgroundColor: '#2c2c2c',
+      overlaysWebView: true
+    },
+    // Audio session configuration for background playback
+    CapacitorHttp: {
+      enabled: true
+    },
+    BackgroundTask: {
+      label: 'Radio Background Playback',
+      description: 'Keeps radio playing in the background'
+    },
+    NativeAudio: {
+      fade: true
     }
+  },
+  // iOS-specific configuration for background audio
+  ios: {
+    backgroundModes: ['audio']
+  },
+  // Android-specific configuration
+  android: {
+    allowMixedContent: true,
+    useLegacyBridge: false
   }
 };
 
